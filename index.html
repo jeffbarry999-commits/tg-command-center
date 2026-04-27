@@ -2646,7 +2646,7 @@ buildWGT();
 // ============================================================
 // MICROSOFT GRAPH — OneDrive Intelligence Storage
 // ============================================================
-var MS_CLIENT_ID = 'fb1f3732-281e-46d4-b1c0-30678c4d85ad';
+var MS_CLIENT_ID = '82719c9a-3f55-4bb1-97b4-f806122e0772';
 var MS_TENANT_ID = '95313aa9-f33f-48b8-b917-6f8bbf85a61c';
 var MS_SCOPES = ['Files.ReadWrite', 'User.Read'];
 var MS_INTEL_PATH = '/me/drive/root:/TG Command Center/TG_Intelligence.json:/content';
@@ -2660,7 +2660,7 @@ function initMSAL() {
       auth: {
         clientId: MS_CLIENT_ID,
         authority: 'https://login.microsoftonline.com/' + MS_TENANT_ID,
-        redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
+        redirectUri: 'https://victorious-hill-0c4306c10.7.azurestaticapps.net',
         knownAuthorities: ['login.microsoftonline.com']
       },
       cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
