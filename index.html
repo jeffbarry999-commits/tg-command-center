@@ -330,6 +330,14 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div id="rules-rows"></div>
   </div>
 
+  <!-- 2026 SCOREBOARD -->
+  <div class="card">
+    <div class="card-title" style="color:#2c2c2a;">2026 Scoreboard
+      <span style="font-size:10px;font-weight:normal;color:#888780;margin-left:8px;">Updates automatically with + buttons or via Claude EOD</span>
+    </div>
+    <div id="scoreboard-card"><div class="empty-state">Loading scoreboard...</div></div>
+  </div>
+
   <!-- legacy hidden container to avoid JS errors -->
   <div id="search-rows" style="display:none;"></div>
   <div id="leads-opp-rows" style="display:none;"></div>
@@ -1357,12 +1365,13 @@ function endOfDay() {
   lines.push("WAIT FOR JEFF TO CONFIRM EACH STEP BEFORE MOVING TO THE NEXT.");
   lines.push("==================================================");
   lines.push("");
-  lines.push("STEP 1 — Give Jeff his seven things in order: Organized Summary, CRM Notes, Candidate Pipeline Update, BD Pipeline Update, Tomorrow's Needle Movers, Close Out Checklist, Updated My Desk block.");
-  lines.push("STEP 2 — After seven things, say: let's close out your day. First — open Recruit CRM and paste the CRM notes above into every contact that had activity today. Set tasks with due dates. Tell me when done.");
-  lines.push("STEP 3 — Wait for confirmation. Then say: go to My Desk tab in Command Center. Paste my full response into the Update My Desk box and click Update. Then click Download for Tomorrow. Tell me when done.");
-  lines.push("STEP 4 — Wait for confirmation. Then say: go to Daily Plan tab. Review your incomplete goals. Check which ones you want to carry to tomorrow. Then click Close Out Day. Tell me when done.");
-  lines.push("STEP 5 — Wait for confirmation. Then say: go to Week Plan tab if it is Friday — fill in your weekly reflection and click Close Out Week. If not Friday, skip this step.");
-  lines.push("STEP 6 — Wait for confirmation. Then say: click Close Day in the nav bar. Tomorrow is set up. See you in the morning.");
+  lines.push("STEP 1 — Give Jeff his eight things in order: Organized Summary, CRM Notes, Candidate Pipeline Update, BD Pipeline Update, Tomorrow's Needle Movers, Close Out Checklist, Updated My Desk block, Intelligence Block.");
+  lines.push("STEP 2 — After eight things, say: let's close out your day. First — go to the Intelligence tab in Command Center. Paste the Intelligence Block above into the paste box and click Save. Tell me when done.");
+  lines.push("STEP 3 — Wait for confirmation. Then say: open Recruit CRM and paste the CRM notes above into every contact that had activity today. Set tasks with due dates. Tell me when done.");
+  lines.push("STEP 4 — Wait for confirmation. Then say: go to My Desk tab in Command Center. Paste my full response into the Update My Desk box and click Update. Then click Download for Tomorrow. Tell me when done.");
+  lines.push("STEP 5 — Wait for confirmation. Then say: go to Daily Plan tab. Review your incomplete goals. Check which ones you want to carry to tomorrow. Then click Close Out Day. Tell me when done.");
+  lines.push("STEP 6 — Wait for confirmation. Then say: go to Week Plan tab if it is Friday — fill in your weekly reflection and click Close Out Week. If not Friday, skip this step.");
+  lines.push("STEP 7 — Wait for confirmation. Then say: click Close Day in the nav bar. Tomorrow is set up. See you in the morning.");
   lines.push("==================================================");
   lines.push("");
   lines.push("1. ORGANIZED SUMMARY of today");
@@ -1390,6 +1399,16 @@ function endOfDay() {
   lines.push("   PERSONAL: [blank — Jeff decides]");
   lines.push("   ---MY DESK BLOCK ENDS---");
   lines.push("");
+  lines.push("8. INTELLIGENCE BLOCK — every piece of market intel captured today, formatted for the Intelligence tab. Use this exact format for each entry:");
+  lines.push("   INTEL ENTRY");
+  lines.push("   Category: [Company | Talent | Market | Comp | Relationship | Timing]");
+  lines.push("   Entity: [Company or person this is about]");
+  lines.push("   Intel: [What you learned — specific, actionable]");
+  lines.push("   Act By: [Date if timing sensitive, blank if not]");
+  lines.push("   ---");
+  lines.push("   (repeat for each piece of intel worth filing. Skip noise. Only file intel that could inform a future BD call, candidate conversation, or search strategy.)");
+  lines.push("   ---INTELLIGENCE BLOCK ENDS---");
+  lines.push("");
   lines.push("TODAY'S LOG:");
   lines.push("");
   log.forEach(function(item, idx) {
@@ -1413,6 +1432,8 @@ function endOfDay() {
   document.getElementById("eod-text").textContent = lastEOD;
   document.getElementById("eod-output").classList.add("visible");
   document.getElementById("eod-output").scrollIntoView({ behavior: "smooth" });
+  // Auto-save EOD summary to OneDrive immediately
+  saveEODToOneDrive(lastEOD);
 }
 
 function copyEOD() {
@@ -1629,6 +1650,8 @@ function updateDeskFromClaude() {
   var s = document.getElementById("desk-update-status");
   s.style.display = "inline"; s.textContent = "My Desk updated.";
   setTimeout(function(){ s.style.display="none"; }, 4000);
+  // Save My Desk to OneDrive
+  saveDeskToOneDrive({ content: document.getElementById('req-blocks').innerHTML + '|||' + document.getElementById('top-leads-rows').innerHTML + '|||' + document.getElementById('hot-candidate-rows').innerHTML + '|||' + document.getElementById('rules-rows').innerHTML, updated: ts });
 }
 
 function buildDeskLines() {
@@ -2650,9 +2673,13 @@ var MS_CLIENT_ID = '82719c9a-3f55-4bb1-97b4-f806122e0772';
 var MS_TENANT_ID = '95313aa9-f33f-48b8-b917-6f8bbf85a61c';
 var MS_SCOPES = ['Files.ReadWrite', 'User.Read'];
 var MS_INTEL_PATH = '/me/drive/root:/TG Command Center/TG_Intelligence.json:/content';
+var MS_DESK_PATH = '/me/drive/root:/TG Command Center/TG_MyDesk.json:/content';
+var MS_EOD_ARCHIVE_PATH = '/me/drive/root:/TG Command Center/TG_EOD_Archive.json:/content';
+var MS_SCOREBOARD_PATH = '/me/drive/root:/TG Command Center/TG_Scoreboard.json:/content';
 var msalApp = null;
 var msAccount = null;
 var intelDB = [];
+var scoreboardData = { engagements: 1, placements: 0, revenue: 16750, engagementTarget: 12, placementTarget: 6, revenueTarget: 300000 };
 
 function initMSAL() {
   try {
@@ -2673,6 +2700,9 @@ function initMSAL() {
         msAccount = result.account;
         showMSConnected(msAccount.name || msAccount.username);
         loadIntelFromOneDrive();
+        loadDeskFromOneDrive();
+        loadEODArchiveFromOneDrive();
+        loadScoreboardFromOneDrive();
         return;
       }
       // Check for existing accounts
@@ -2681,6 +2711,9 @@ function initMSAL() {
         msAccount = accounts[0];
         showMSConnected(msAccount.name || msAccount.username);
         loadIntelFromOneDrive();
+        loadDeskFromOneDrive();
+        loadEODArchiveFromOneDrive();
+        loadScoreboardFromOneDrive();
       }
     }).catch(function(e) { console.log('MSAL init error:', e.message); });
   } catch(e) { console.log('MSAL not available:', e.message); }
@@ -2762,6 +2795,161 @@ async function loadIntelFromOneDrive() {
 function intelSave() {
   localStorage.setItem('TG_INTEL_CACHE', JSON.stringify(intelDB));
   saveIntelToOneDrive();
+}
+
+// ============================================================
+// ONEDRIVE — MY DESK
+// ============================================================
+async function saveDeskToOneDrive(deskObj) {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    await fetch('https://graph.microsoft.com/v1.0' + MS_DESK_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(deskObj, null, 2)
+    });
+  } catch(e) { console.log('Desk save error:', e.message); }
+}
+
+async function loadDeskFromOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0' + MS_DESK_PATH, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      if (data && data.content) {
+        localStorage.setItem('tg_desk_content', data.content);
+        localStorage.setItem('tg_desk_updated', data.updated || '');
+        var el = document.getElementById('desk-content');
+        var ts = document.getElementById('desk-last-updated');
+        if (el) el.innerHTML = data.content;
+        if (ts && data.updated) ts.textContent = 'Last updated: ' + data.updated;
+      }
+    }
+  } catch(e) { console.log('Desk load error:', e.message); }
+}
+
+// ============================================================
+// ONEDRIVE — EOD ARCHIVE
+// ============================================================
+var eodArchiveDB = [];
+
+async function saveEODToOneDrive(eodText) {
+  var token = await getMSToken();
+  if (!token) return;
+  var entry = { date: new Date().toLocaleDateString(), timestamp: new Date().toLocaleString(), content: eodText };
+  eodArchiveDB.unshift(entry);
+  if (eodArchiveDB.length > 30) eodArchiveDB = eodArchiveDB.slice(0, 30); // keep 30 days
+  try {
+    await fetch('https://graph.microsoft.com/v1.0' + MS_EOD_ARCHIVE_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(eodArchiveDB, null, 2)
+    });
+  } catch(e) { console.log('EOD archive save error:', e.message); }
+}
+
+async function loadEODArchiveFromOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0' + MS_EOD_ARCHIVE_PATH, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      if (Array.isArray(data)) { eodArchiveDB = data; }
+    }
+  } catch(e) { console.log('EOD archive load error:', e.message); }
+}
+
+// ============================================================
+// ONEDRIVE — SCOREBOARD
+// ============================================================
+async function saveScoreboardToOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    await fetch('https://graph.microsoft.com/v1.0' + MS_SCOREBOARD_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(scoreboardData, null, 2)
+    });
+  } catch(e) { console.log('Scoreboard save error:', e.message); }
+}
+
+async function loadScoreboardFromOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0' + MS_SCOREBOARD_PATH, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      if (data && data.hasOwnProperty('engagements')) {
+        scoreboardData = data;
+        renderScoreboard();
+      }
+    }
+  } catch(e) { console.log('Scoreboard load error:', e.message); }
+}
+
+function renderScoreboard() {
+  var el = document.getElementById('scoreboard-card');
+  if (!el) return;
+  var remaining = scoreboardData.revenueTarget - scoreboardData.revenue;
+  var monthsLeft = 8;
+  var pace = Math.round(remaining / monthsLeft);
+  el.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+    '<div style="background:#f5f5f0;border-radius:6px;padding:10px;">' +
+    '<div style="font-size:10px;font-weight:bold;color:#888780;text-transform:uppercase;letter-spacing:0.06em;">Signed Engagements</div>' +
+    '<div style="font-size:22px;font-weight:bold;color:#2c2c2a;margin:2px 0;">' + scoreboardData.engagements + '<span style="font-size:13px;color:#888780;"> / ' + scoreboardData.engagementTarget + '</span></div>' +
+    '<div style="font-size:11px;color:#D85A30;">' + (scoreboardData.engagementTarget - scoreboardData.engagements) + ' remaining</div></div>' +
+    '<div style="background:#f5f5f0;border-radius:6px;padding:10px;">' +
+    '<div style="font-size:10px;font-weight:bold;color:#888780;text-transform:uppercase;letter-spacing:0.06em;">Placements</div>' +
+    '<div style="font-size:22px;font-weight:bold;color:#2c2c2a;margin:2px 0;">' + scoreboardData.placements + '<span style="font-size:13px;color:#888780;"> / ' + scoreboardData.placementTarget + '</span></div>' +
+    '<div style="font-size:11px;color:#D85A30;">' + (scoreboardData.placementTarget - scoreboardData.placements) + ' remaining</div></div>' +
+    '<div style="background:#f5f5f0;border-radius:6px;padding:10px;">' +
+    '<div style="font-size:10px;font-weight:bold;color:#888780;text-transform:uppercase;letter-spacing:0.06em;">Revenue YTD</div>' +
+    '<div style="font-size:22px;font-weight:bold;color:#1D9E75;margin:2px 0;">$' + scoreboardData.revenue.toLocaleString() + '</div>' +
+    '<div style="font-size:11px;color:#888780;">of $' + scoreboardData.revenueTarget.toLocaleString() + ' target</div></div>' +
+    '<div style="background:#f5f5f0;border-radius:6px;padding:10px;">' +
+    '<div style="font-size:10px;font-weight:bold;color:#888780;text-transform:uppercase;letter-spacing:0.06em;">Monthly Pace Needed</div>' +
+    '<div style="font-size:22px;font-weight:bold;color:#185FA5;margin:2px 0;">$' + pace.toLocaleString() + '</div>' +
+    '<div style="font-size:11px;color:#888780;">' + monthsLeft + ' months remaining</div></div>' +
+    '</div>' +
+    '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+    '<button class="btn" style="font-size:11px;padding:4px 10px;background:#1D9E75;color:white;" onclick="scoreboardAdd(\'engagement\')">+ Engagement</button>' +
+    '<button class="btn" style="font-size:11px;padding:4px 10px;background:#185FA5;color:white;" onclick="scoreboardAdd(\'placement\')">+ Placement</button>' +
+    '<button class="btn" style="font-size:11px;padding:4px 10px;background:#888780;color:white;" onclick="scoreboardUpdateRevenue()">Update Revenue</button>' +
+    '</div>';
+}
+
+function scoreboardAdd(type) {
+  if (type === 'engagement') {
+    scoreboardData.engagements++;
+    scoreboardData.revenue += 5000;
+  } else if (type === 'placement') {
+    scoreboardData.placements++;
+    scoreboardData.revenue += 30000;
+  }
+  renderScoreboard();
+  saveScoreboardToOneDrive();
+}
+
+function scoreboardUpdateRevenue() {
+  var val = prompt('Enter current total revenue YTD ($):');
+  if (val && !isNaN(val)) {
+    scoreboardData.revenue = parseInt(val);
+    renderScoreboard();
+    saveScoreboardToOneDrive();
+  }
 }
 
 // ============================================================
@@ -3013,6 +3201,7 @@ function loadIntelCache() {
 
 // Initialize
 loadIntelCache();
+renderScoreboard();
 initMSAL();
 </script>
 </html>
