@@ -3030,7 +3030,63 @@ function clearIntelFilters() {
   renderIntel();
 }
 
+
+function populateIntelFilters() {
+  // Populate company dropdown
+  var compSel = document.getElementById('intel-filter-company');
+  if (compSel) {
+    var savedComp = compSel.value;
+    var companies = {};
+    intelDB.forEach(function(d) { if (d.company) companies[d.company] = 1; });
+    compSel.innerHTML = '<option value="">All companies</option>';
+    Object.keys(companies).sort().forEach(function(c) {
+      compSel.innerHTML += '<option value="' + c.replace(/"/g, '&quot;') + '">' + c + '</option>';
+    });
+    compSel.value = savedComp;
+  }
+
+  // Populate market dropdown
+  var mktSel = document.getElementById('intel-filter-market');
+  if (mktSel) {
+    var savedMkt = mktSel.value;
+    var markets = {};
+    intelDB.forEach(function(d) { if (d.market) markets[d.market] = 1; });
+    mktSel.innerHTML = '<option value="">All markets</option>';
+    Object.keys(markets).sort().forEach(function(m) {
+      mktSel.innerHTML += '<option value="' + m.replace(/"/g, '&quot;') + '">' + m + '</option>';
+    });
+    mktSel.value = savedMkt;
+  }
+
+  // Populate function dropdown
+  var fnSel = document.getElementById('intel-filter-fn');
+  if (fnSel) {
+    var savedFn = fnSel.value;
+    var fns = {};
+    intelDB.forEach(function(d) { if (d.fn) fns[d.fn] = 1; });
+    fnSel.innerHTML = '<option value="">All functions</option>';
+    Object.keys(fns).sort().forEach(function(f) {
+      fnSel.innerHTML += '<option value="' + f.replace(/"/g, '&quot;') + '">' + f + '</option>';
+    });
+    fnSel.value = savedFn;
+  }
+
+  // Populate signal dropdown
+  var sigSel = document.getElementById('intel-filter-signal');
+  if (sigSel) {
+    var savedSig = sigSel.value;
+    var signals = {};
+    intelDB.forEach(function(d) { if (d.signal) signals[d.signal] = 1; });
+    sigSel.innerHTML = '<option value="">All signals</option>';
+    Object.keys(signals).sort().forEach(function(s) {
+      sigSel.innerHTML += '<option value="' + s.replace(/"/g, '&quot;') + '">' + s + '</option>';
+    });
+    sigSel.value = savedSig;
+  }
+}
+
 function renderIntel() {
+  populateIntelFilters();
   var q = ((document.getElementById('intel-search') || {value:''}).value || '').toLowerCase();
   var type = (document.getElementById('intel-filter-type') || {value:''}).value;
   var company = (document.getElementById('intel-filter-company') || {value:''}).value;
