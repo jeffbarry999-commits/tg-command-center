@@ -1399,15 +1399,37 @@ function endOfDay() {
   lines.push("   PERSONAL: [blank — Jeff decides]");
   lines.push("   ---MY DESK BLOCK ENDS---");
   lines.push("");
-  lines.push("8. INTELLIGENCE BLOCK — every piece of market intel captured today, formatted for the Intelligence tab. Use this exact format for each entry:");
-  lines.push("   INTEL ENTRY");
-  lines.push("   Category: [Company | Talent | Market | Comp | Relationship | Timing]");
-  lines.push("   Entity: [Company or person this is about]");
-  lines.push("   Intel: [What you learned — specific, actionable]");
-  lines.push("   Act By: [Date if timing sensitive, blank if not]");
-  lines.push("   ---");
-  lines.push("   (repeat for each piece of intel worth filing. Skip noise. Only file intel that could inform a future BD call, candidate conversation, or search strategy.)");
-  lines.push("   ---INTELLIGENCE BLOCK ENDS---");
+  lines.push("8. INTELLIGENCE BLOCK — Read every capture log entry. Extract every gem — salary, comp, timing signals, relationship paths, hiring signals, layoffs, market moves, job postings, candidate reads. Format each as a structured entry using ---ENTRY--- as separator. Two entry types:");
+  lines.push("");
+  lines.push("PERSON ENTRY (for every person you interacted with):");
+  lines.push("TYPE: Person");
+  lines.push("NAME: [Full Name]");
+  lines.push("TITLE: [Title]");
+  lines.push("COMPANY: [Company]");
+  lines.push("MARKET: [e.g. Phoenix, AZ | Houston, TX | Tampa, FL | National]");
+  lines.push("FUNCTION: [Land | Entitlement | Development | Finance | Purchasing | Supply Chain | Sales Leadership | Operations | Division President | Construction | HR / Talent]");
+  lines.push("PERSON_TYPE: [Candidate | Client | Contact]");
+  lines.push("COMP: [salary/comp if mentioned]");
+  lines.push("HEAT: [hot | warm | cold]");
+  lines.push("SIGNAL: [Timing Flag — Candidate Ready | Layoff | Leadership Move | Org Change | Compensation Data | BD Signal | Relationship Intel | Warm Path In | Job Posting | Recent Hire]");
+  lines.push("NOTES: [what you learned, your read, key intel from the call]");
+  lines.push("NEXT: [next action]");
+  lines.push("---ENTRY---");
+  lines.push("");
+  lines.push("SIGNAL ENTRY (for company/market intel, job postings, news, market moves):");
+  lines.push("TYPE: Signal");
+  lines.push("COMPANY: [Company name]");
+  lines.push("MARKET: [e.g. Phoenix, AZ | Houston, TX | Tampa, FL | National]");
+  lines.push("FUNCTION: [Land | Purchasing | Supply Chain | Sales Leadership | etc]");
+  lines.push("SIGNAL: [Hiring — Adding Headcount | Job Posting | Recent Hire | Topgrading | Layoff | Leadership Move | Org Change | Timing Flag — Candidate Ready | New Communities | Land Win | Expansion — New Market | Contraction | Capital Raise | BD Signal | Relationship Intel | Warm Path In | Compensation Data | Market Intel | Article / News | Research]");
+  lines.push("HEAT: [hot | warm | cold]");
+  lines.push("SOURCE: [Direct | Confirmed | Rumor | Article | Jeff's Read]");
+  lines.push("NOTES: [specific actionable intel]");
+  lines.push("NEXT: [what to do with this intel]");
+  lines.push("---ENTRY---");
+  lines.push("");
+  lines.push("RULES: Every person you talked to gets a PERSON entry. Every company signal, job posting, market move, or news item gets a SIGNAL entry. Extract comp/salary from notes and include in COMP field. Never skip market or function. Use exact values from the dropdown lists above.");
+  lines.push("---INTELLIGENCE BLOCK ENDS---");
   lines.push("");
   lines.push("TODAY'S LOG:");
   lines.push("");
@@ -2577,16 +2599,19 @@ buildWGT();
         <div class="modal-field"><div class="field-label">Market</div>
           <select id="intel-p-market" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
             <option value="">— market</option>
-            <option>Phoenix, AZ</option><option>Houston, TX</option><option>Dallas, TX</option><option>Austin, TX</option>
-            <option>Tampa, FL</option><option>Orlando, FL</option><option>Atlanta, GA</option><option>Charlotte, NC</option>
-            <option>Denver, CO</option><option>Minneapolis, MN</option><option>Chicago, IL</option><option>National</option>
+            <optgroup label="Southwest"><option>Phoenix, AZ</option><option>Tucson, AZ</option><option>Las Vegas, NV</option></optgroup>
+            <optgroup label="Texas"><option>Houston, TX</option><option>Dallas, TX</option><option>Austin, TX</option><option>San Antonio, TX</option></optgroup>
+            <optgroup label="Southeast"><option>Tampa, FL</option><option>Orlando, FL</option><option>Miami, FL</option><option>Atlanta, GA</option><option>Charlotte, NC</option><option>Raleigh, NC</option><option>Nashville, TN</option></optgroup>
+            <optgroup label="Mountain"><option>Denver, CO</option><option>Salt Lake City, UT</option><option>Boise, ID</option></optgroup>
+            <optgroup label="Midwest"><option>Minneapolis, MN</option><option>Chicago, IL</option></optgroup>
+            <option>National</option>
           </select>
         </div>
         <div class="modal-field"><div class="field-label">Function</div>
           <select id="intel-p-fn" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
             <option value="">— function</option>
             <option>Land</option><option>Entitlement</option><option>Development</option><option>Finance</option>
-            <option>Purchasing</option><option>Sales Leadership</option><option>Operations</option><option>Division President</option><option>Construction</option>
+            <option>Purchasing</option><option>Supply Chain</option><option>Sales Leadership</option><option>Operations</option><option>Division President</option><option>Construction</option><option>HR / Talent</option>
           </select>
         </div>
         <div class="modal-field"><div class="field-label">Type</div>
@@ -2604,8 +2629,16 @@ buildWGT();
       <div class="modal-field" style="margin-top:8px;"><div class="field-label">Signal (optional)</div>
         <select id="intel-p-signal" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
           <option value="">— none</option>
-          <option>Timing Flag</option><option>Org Change</option><option>Leadership Move</option>
-          <option>Compensation</option><option>BD Signal</option><option>Relationship Intel</option>
+          <option>Timing Flag — Candidate Ready</option>
+          <option>Layoff</option>
+          <option>Leadership Move</option>
+          <option>Org Change</option>
+          <option>Compensation Data</option>
+          <option>BD Signal</option>
+          <option>Relationship Intel</option>
+          <option>Warm Path In</option>
+          <option>Job Posting</option>
+          <option>Recent Hire</option>
         </select>
       </div>
       <div class="modal-field" style="margin-top:8px;"><div class="field-label">Notes</div>
@@ -2621,22 +2654,56 @@ buildWGT();
         <div class="modal-field"><div class="field-label">Market</div>
           <select id="intel-s-market" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
             <option value="">— market</option>
-            <option>Phoenix, AZ</option><option>Houston, TX</option><option>Dallas, TX</option><option>Tampa, FL</option>
-            <option>Atlanta, GA</option><option>Charlotte, NC</option><option>Denver, CO</option><option>National</option>
+            <optgroup label="Southwest"><option>Phoenix, AZ</option><option>Tucson, AZ</option><option>Las Vegas, NV</option></optgroup>
+            <optgroup label="Texas"><option>Houston, TX</option><option>Dallas, TX</option><option>Austin, TX</option><option>San Antonio, TX</option></optgroup>
+            <optgroup label="Southeast"><option>Tampa, FL</option><option>Orlando, FL</option><option>Miami, FL</option><option>Atlanta, GA</option><option>Charlotte, NC</option><option>Raleigh, NC</option><option>Nashville, TN</option></optgroup>
+            <optgroup label="Mountain"><option>Denver, CO</option><option>Salt Lake City, UT</option><option>Boise, ID</option></optgroup>
+            <optgroup label="Midwest"><option>Minneapolis, MN</option><option>Chicago, IL</option></optgroup>
+            <option>National</option>
           </select>
         </div>
         <div class="modal-field"><div class="field-label">Function</div>
           <select id="intel-s-fn" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
             <option value="">— function</option>
             <option>Land</option><option>Entitlement</option><option>Development</option><option>Finance</option>
-            <option>Purchasing</option><option>Sales Leadership</option><option>Operations</option><option>Division President</option>
+            <option>Purchasing</option><option>Supply Chain</option><option>Sales Leadership</option><option>Operations</option><option>Division President</option><option>Construction</option><option>HR / Talent</option>
           </select>
         </div>
         <div class="modal-field"><div class="field-label">Signal Type</div>
           <select id="intel-s-type" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
-            <option value="">— signal</option>
-            <option>Org Change</option><option>Leadership Move</option><option>Expansion</option><option>Contraction</option>
-            <option>Compensation</option><option>Timing Flag</option><option>BD Signal</option><option>Market Intel</option><option>Research</option>
+            <option value="">— signal type</option>
+            <optgroup label="Hiring">
+              <option>Hiring — Adding Headcount</option>
+              <option>Job Posting</option>
+              <option>Recent Hire</option>
+              <option>Topgrading</option>
+            </optgroup>
+            <optgroup label="Talent Movement">
+              <option>Layoff</option>
+              <option>Leadership Move</option>
+              <option>Org Change</option>
+              <option>Timing Flag — Candidate Ready</option>
+            </optgroup>
+            <optgroup label="Market Activity">
+              <option>New Communities</option>
+              <option>Land Win</option>
+              <option>Expansion — New Market</option>
+              <option>Contraction</option>
+              <option>Capital Raise</option>
+            </optgroup>
+            <optgroup label="BD">
+              <option>BD Signal</option>
+              <option>Relationship Intel</option>
+              <option>Warm Path In</option>
+            </optgroup>
+            <optgroup label="Comp">
+              <option>Compensation Data</option>
+            </optgroup>
+            <optgroup label="Research">
+              <option>Market Intel</option>
+              <option>Article / News</option>
+              <option>Research</option>
+            </optgroup>
           </select>
         </div>
         <div class="modal-field"><div class="field-label">Heat</div>
@@ -3032,7 +3099,7 @@ function clearIntelFilters() {
 
 
 function populateIntelFilters() {
-  // Populate company dropdown
+  // Only company is dynamic - all others are static dropdowns
   var compSel = document.getElementById('intel-filter-company');
   if (compSel) {
     var savedComp = compSel.value;
@@ -3042,46 +3109,7 @@ function populateIntelFilters() {
     Object.keys(companies).sort().forEach(function(c) {
       compSel.innerHTML += '<option value="' + c.replace(/"/g, '&quot;') + '">' + c + '</option>';
     });
-    compSel.value = savedComp;
-  }
-
-  // Populate market dropdown
-  var mktSel = document.getElementById('intel-filter-market');
-  if (mktSel) {
-    var savedMkt = mktSel.value;
-    var markets = {};
-    intelDB.forEach(function(d) { if (d.market) markets[d.market] = 1; });
-    mktSel.innerHTML = '<option value="">All markets</option>';
-    Object.keys(markets).sort().forEach(function(m) {
-      mktSel.innerHTML += '<option value="' + m.replace(/"/g, '&quot;') + '">' + m + '</option>';
-    });
-    mktSel.value = savedMkt;
-  }
-
-  // Populate function dropdown
-  var fnSel = document.getElementById('intel-filter-fn');
-  if (fnSel) {
-    var savedFn = fnSel.value;
-    var fns = {};
-    intelDB.forEach(function(d) { if (d.fn) fns[d.fn] = 1; });
-    fnSel.innerHTML = '<option value="">All functions</option>';
-    Object.keys(fns).sort().forEach(function(f) {
-      fnSel.innerHTML += '<option value="' + f.replace(/"/g, '&quot;') + '">' + f + '</option>';
-    });
-    fnSel.value = savedFn;
-  }
-
-  // Populate signal dropdown
-  var sigSel = document.getElementById('intel-filter-signal');
-  if (sigSel) {
-    var savedSig = sigSel.value;
-    var signals = {};
-    intelDB.forEach(function(d) { if (d.signal) signals[d.signal] = 1; });
-    sigSel.innerHTML = '<option value="">All signals</option>';
-    Object.keys(signals).sort().forEach(function(s) {
-      sigSel.innerHTML += '<option value="' + s.replace(/"/g, '&quot;') + '">' + s + '</option>';
-    });
-    sigSel.value = savedSig;
+    if (savedComp) compSel.value = savedComp;
   }
 }
 
