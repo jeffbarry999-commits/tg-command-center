@@ -2106,6 +2106,7 @@ function switchTab(tabId, btn) {
   if (btn) btn.classList.add("active");
   if (tabId === "weekly") { renderWeekly(); buildWGT(); }
   if (tabId === "archive") { renderArchive(); loadPlanArchive(); loadWeekPlanArchive(); }
+  if (tabId === "intel") { populateIntelDropdowns(); renderIntel(); renderIntelStats(); }
 }
 
 // ============================================================
