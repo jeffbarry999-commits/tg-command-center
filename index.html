@@ -2109,278 +2109,1032 @@ function switchTab(tabId, btn) {
 }
 
 // ============================================================
-// INTELLIGENCE LAYER
-// ============================================================
 
 // ============================================================
-// AIRTABLE CONFIG — PASTE YOUR VALUES BELOW
-// Step 1: Replace PASTE_YOUR_TOKEN_HERE with your Airtable token
-// Step 2: Replace PASTE_YOUR_BASE_ID_HERE with your Base ID (starts with app...)
-// Step 3: Save this file
+// INTELLIGENCE LAYER v5 — ANCHOR-FIRST ARCHITECTURE
+// Markets · Companies · Skill Sets · Projects · People
 // ============================================================
-var AIRTABLE_TOKEN = "PASTE_YOUR_TOKEN_HERE";
-var AIRTABLE_BASE_ID = "PASTE_YOUR_BASE_ID_HERE";
-var AIRTABLE_TABLE = "Table 1";
-// ============================================================
-var intelData = {};
-var intelCats = ["company","talent","market","comp","relationship","timing"];
 
-function loadIntel() {
-  try {
-    var s = localStorage.getItem("tg_intel_v2");
-    if (s) intelData = JSON.parse(s);
-  } catch(e) { intelData = {}; }
-  intelCats.forEach(function(c){ if (!intelData[c]) intelData[c] = []; });
-  renderIntelPanels();
-}
+var intelDB = [];
+var projectDB = [];
+var peopleDB = [];
+var divProfiles = {};
 
-function saveIntelModal() {
-  var cat = document.getElementById("intel-cat").value;
-  var entity = document.getElementById("intel-entity").value.trim();
-  var note = document.getElementById("intel-note").value.trim();
-  var actdate = document.getElementById("intel-actdate").value;
-  if (!note) { alert("Add some intel first."); return; }
-  addIntelEntry(cat, note, entity, actdate);
-  document.getElementById("intel-note").value = "";
-  document.getElementById("intel-entity").value = "";
-  document.getElementById("intel-actdate").value = "";
-  document.getElementById("intel-modal").classList.remove("open");
-  alert("Intel saved.");
-}
-
-function addIntelEntry(cat, note, entity, actdate) {
-  if (!intelData[cat]) intelData[cat] = [];
-  var now = new Date();
-  intelData[cat].unshift({ note: note, entity: entity || "", date: (now.getMonth()+1) + "/" + now.getDate(), actdate: actdate || "" });
-  try { localStorage.setItem("tg_intel_v2", JSON.stringify(intelData)); } catch(e) {}
-  renderIntelPanels();
-  pushToAirtable(cat, note, entity, actdate);
-}
-
-function pushToAirtable(cat, note, entity, actdate) {
-  if (AIRTABLE_TOKEN === "PASTE_YOUR_TOKEN_HERE" || AIRTABLE_BASE_ID === "PASTE_YOUR_BASE_ID_HERE") return;
-  var url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/" + encodeURIComponent(AIRTABLE_TABLE);
-  var now = new Date();
-  var fields = {
-    "Intel": note,
-    "Entity": entity || "",
-    "Category": cat,
-    "Date": now.toISOString().split("T")[0]
-  };
-  if (actdate) fields["Act By"] = actdate;
-  fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + AIRTABLE_TOKEN,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ fields: fields })
-  }).then(function(r) {
-    if (r.ok) {
-      var status = document.getElementById("intel-sync-status");
-      if (status) { status.textContent = "Saved to Airtable"; status.style.display = "inline"; setTimeout(function(){ status.style.display="none"; }, 3000); }
-    } else {
-      console.log("Airtable push failed:", r.status);
-    }
-  }).catch(function(e) { console.log("Airtable error:", e); });
-}
-
-function renderIntelPanels() {
-  intelCats.forEach(function(cat) {
-    var c = document.getElementById("intel-" + cat);
-    if (!c) return;
-    var items = intelData[cat] || [];
-    if (!items.length) { c.innerHTML = '<div class="empty-state">None yet. Add intel from calls here.</div>'; return; }
-    c.innerHTML = items.slice(0, 8).map(function(item) {
-      return '<div style="padding:5px 0;border-bottom:1px solid #f5f5f0;font-size:12px;display:flex;gap:6px;">' +
-        '<span style="font-size:10px;color:#888780;flex-shrink:0;min-width:36px;">' + item.date + '</span>' +
-        '<span style="flex:1;line-height:1.4;">' + (item.entity ? '<strong>' + item.entity + '</strong> — ' : '') + item.note +
-        (item.actdate ? ' <span style="font-size:10px;background:#FCEBEB;color:#A32D2D;border-radius:3px;padding:1px 4px;margin-left:4px;">act ' + item.actdate + '</span>' : '') +
-        '</span></div>';
-    }).join("");
-  });
-}
-
-function searchIntel(q) {
-  var r = document.getElementById("intel-search-results");
-  if (!q || q.length < 2) { r.style.display = "none"; return; }
-  var ql = q.toLowerCase(), found = [];
-  intelCats.forEach(function(cat) {
-    (intelData[cat] || []).forEach(function(item) {
-      if ((item.note + item.entity).toLowerCase().indexOf(ql) > -1) found.push({ cat: cat, item: item });
-    });
-  });
-  r.style.display = "block";
-  if (!found.length) { r.innerHTML = '<div style="font-size:12px;color:#888780;padding:8px;background:#f5f5f0;border-radius:6px;">No intel found for "' + q + '"</div>'; return; }
-  r.innerHTML = '<div style="background:#f5f5f0;border-radius:6px;padding:8px;">' + found.slice(0,10).map(function(f) {
-    return '<div style="padding:5px 0;border-bottom:1px solid #e0e0d8;font-size:12px;">' +
-      '<span style="background:#e0e0d8;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:bold;text-transform:uppercase;margin-right:6px;">' + f.cat + '</span>' +
-      '<span style="color:#888780;">' + f.item.date + '</span> ' +
-      (f.item.entity ? '<strong>' + f.item.entity + '</strong> — ' : '') + f.item.note + '</div>';
-  }).join("") + '</div>';
-}
-
-function buildMarketBrief() {
-  var focus = document.getElementById("brief-focus").value.trim();
-  var lines = ["THOMAS GRACE — MARKET BRIEF", focus ? "Focus: " + focus : "All Markets", new Date().toLocaleDateString(), ""];
-  var has = false;
-  var labels = { company:"COMPANY SIGNALS", talent:"TALENT MOVEMENT", market:"MARKET SIGNALS", comp:"COMP DATA", relationship:"RELATIONSHIP PATHS", timing:"TIMING FLAGS" };
-  intelCats.forEach(function(cat) {
-    var items = (intelData[cat] || []).slice(0, 5);
-    if (items.length) { has = true; lines.push(labels[cat] + ":"); items.forEach(function(i){ lines.push("  " + (i.entity ? i.entity + " — " : "") + i.note); }); lines.push(""); }
-  });
-  if (!has) { alert("No intelligence yet. Add intel in the Intelligence tab first."); return; }
-  var txt = lines.join("\n");
-  document.getElementById("brief-text").textContent = txt;
-  document.getElementById("brief-output").style.display = "block";
-  window._briefText = txt;
-}
-
-function copyBrief() { navigator.clipboard.writeText(window._briefText || "").then(function(){ alert("Copied."); }); }
-
-function exportIntelCSV() {
-  var rows = [["Date","Category","Entity","Intel","Act By"]];
-  intelCats.forEach(function(cat) {
-    (intelData[cat] || []).forEach(function(item) {
-      rows.push([item.date, cat, item.entity, item.note, item.actdate || ""]);
-    });
-  });
-  var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c).replace(/"/g,'""') + '"'; }).join(","); }).join("\n");
-  downloadFile(csv, "TG_Intel_" + new Date().toLocaleDateString().replace(/\//g,"-") + ".csv");
-}
-
-// ============================================================
-// AUTO-FILE INTEL FROM CAPTURE (patched into saveInteraction)
-// ============================================================
-var _origSaveInteraction = saveInteraction;
-saveInteraction = function() {
-  _origSaveInteraction();
-  // auto-file intel if category was selected
-  try {
-    var cat = document.getElementById("cl-intel-cat");
-    var intel = document.getElementById("cl-intel");
-    var company = document.getElementById("contact-company");
-    var name = document.getElementById("contact-name");
-    if (cat && cat.value && intel && intel.value.trim()) {
-      addIntelEntry(cat.value, intel.value.trim(), (company && company.value.trim()) || (name && name.value.trim()) || "", "");
-    }
-  } catch(e) {}
-};
-
-function saveAirtableSettings() {
-  var token = document.getElementById("settings-token").value.trim();
-  var baseid = document.getElementById("settings-baseid").value.trim();
-  if (!token || !baseid) { alert("Enter both your token and Base ID."); return; }
-  localStorage.setItem("tg_at_token", token);
-  localStorage.setItem("tg_at_baseid", baseid);
-  AIRTABLE_TOKEN = token;
-  AIRTABLE_BASE_ID = baseid;
-  var status = document.getElementById("settings-status");
-  status.style.display = "block";
-  status.style.color = "#888780";
-  status.textContent = "Testing connection...";
-  var url = "https://api.airtable.com/v0/" + baseid + "/" + encodeURIComponent(AIRTABLE_TABLE) + "?maxRecords=1";
-  fetch(url, { headers: { "Authorization": "Bearer " + token } })
-    .then(function(r) {
-      if (r.ok) { status.style.color = "#1D9E75"; status.textContent = "Connected. Intel will now save to Airtable automatically."; }
-      else { status.style.color = "#E24B4A"; status.textContent = "Connection failed. Check your token and Base ID."; }
-    }).catch(function() { status.style.color = "#E24B4A"; status.textContent = "Connection error. Check your internet connection."; });
-}
-
-function loadAirtableSettings() {
-  var token = localStorage.getItem("tg_at_token");
-  var baseid = localStorage.getItem("tg_at_baseid");
-  if (token) { AIRTABLE_TOKEN = token; var el = document.getElementById("settings-token"); if (el) el.value = token; }
-  if (baseid) { AIRTABLE_BASE_ID = baseid; var el2 = document.getElementById("settings-baseid"); if (el2) el2.value = baseid; }
-}
-
-// ============================================================
-// WEEKLY GOAL TRACKER — paper system digitized
-// ============================================================
-var wgtData = { targets: { contacts:125, candidates:5, submittals:3, jobs:1, interviews:1, prep:5, hours:40 }, days: { mon:{}, tue:{}, wed:{}, thu:{}, fri:{} } };
-var wgtRows = [
-  { key:'contacts',   label:'Contacts',           target:125 },
-  { key:'candidates', label:'Candidates',          target:5   },
-  { key:'submittals', label:'Submittals',          target:3   },
-  { key:'jobs',       label:'Job Orders',          target:1   },
-  { key:'interviews', label:'Interviews',          target:1   },
-  { key:'prep',       label:'Daily Prep',          target:5   },
-  { key:'hours',      label:'Work Hours',          target:40  }
+// ---- COMPANY ANCHORS ----
+var TG_COMPANIES = [
+  // BUILDER 100
+  {n:"D.R. Horton",t:"Homebuilder",r:1,pub:true,hq:"Fort Worth, TX"},
+  {n:"Lennar Corp.",t:"Homebuilder",r:2,pub:true,hq:"Miami, FL"},
+  {n:"PulteGroup",t:"Homebuilder",r:3,pub:true,hq:"Atlanta, GA"},
+  {n:"NVR",t:"Homebuilder",r:4,pub:true,hq:"Reston, VA"},
+  {n:"Meritage Homes",t:"Homebuilder",r:5,pub:true,hq:"Scottsdale, AZ"},
+  {n:"Taylor Morrison",t:"Homebuilder",r:6,pub:true,hq:"Scottsdale, AZ"},
+  {n:"KB Home",t:"Homebuilder",r:7,pub:true,hq:"Los Angeles, CA"},
+  {n:"Sekisui House U.S.",t:"Homebuilder",r:8,pub:true,hq:"Denver, CO"},
+  {n:"Toll Brothers",t:"Homebuilder",r:9,pub:true,hq:"Horsham, PA"},
+  {n:"Century Communities",t:"Homebuilder",r:10,pub:true,hq:"Greenwood Village, CO"},
+  {n:"Ashton Woods Homes",t:"Homebuilder",r:11,pub:false,hq:"Atlanta, GA"},
+  {n:"Clayton Properties Group",t:"Homebuilder",r:12,pub:false,hq:"Maryville, TN"},
+  {n:"M/I Homes",t:"Homebuilder",r:13,pub:true,hq:"Columbus, OH"},
+  {n:"Dream Finders Homes",t:"Homebuilder",r:14,pub:true,hq:"Jacksonville, FL"},
+  {n:"DRB Group",t:"Homebuilder",r:15,pub:false,hq:"Potomac, MD"},
+  {n:"Hovnanian Enterprises",t:"Homebuilder",r:16,pub:true,hq:"Matawan, NJ"},
+  {n:"David Weekley Homes",t:"Homebuilder",r:17,pub:false,hq:"Houston, TX"},
+  {n:"Stanley Martin Homes",t:"Homebuilder",r:18,pub:false,hq:"Reston, VA"},
+  {n:"Tri Pointe Homes",t:"Homebuilder",r:19,pub:true,hq:"Incline Village, NV"},
+  {n:"LGI Homes",t:"Homebuilder",r:20,pub:true,hq:"The Woodlands, TX"},
+  {n:"Beazer Homes",t:"Homebuilder",r:21,pub:true,hq:"Atlanta, GA"},
+  {n:"Perry Homes",t:"Homebuilder",r:22,pub:false,hq:"Houston, TX"},
+  {n:"Middleburg Communities",t:"Homebuilder",r:23,pub:false,hq:""},
+  {n:"Mattamy Homes",t:"Homebuilder",r:24,pub:false,hq:"Winter Park, FL"},
+  {n:"DSLD Homes",t:"Homebuilder",r:25,pub:false,hq:"Baton Rouge, LA"},
+  {n:"Green Brick Partners",t:"Homebuilder",r:26,pub:true,hq:"Plano, TX"},
+  {n:"Risewell Homes",t:"Homebuilder",r:27,pub:false,hq:""},
+  {n:"The Villages of Lake Sumter",t:"Homebuilder",r:28,pub:false,hq:"The Villages, FL"},
+  {n:"Highland Homes",t:"Homebuilder",r:29,pub:false,hq:"Covington, LA"},
+  {n:"Habitat for Humanity Intl.",t:"Homebuilder",r:30,pub:false,hq:"Atlanta, GA"},
+  {n:"Adams Homes",t:"Homebuilder",r:31,pub:false,hq:"Pensacola, FL"},
+  {n:"Fischer Homes",t:"Homebuilder",r:32,pub:false,hq:"Erlanger, KY"},
+  {n:"Smith Douglas Homes",t:"Homebuilder",r:33,pub:true,hq:"Woodstock, GA"},
+  {n:"Shea Homes",t:"Homebuilder",r:34,pub:false,hq:"Walnut, CA"},
+  {n:"AMH",t:"Homebuilder",r:35,pub:true,hq:"Las Vegas, NV"},
+  {n:"Maronda Homes",t:"Homebuilder",r:36,pub:false,hq:"Pittsburgh, PA"},
+  {n:"Drees Homes",t:"Homebuilder",r:37,pub:false,hq:"Fort Mitchell, KY"},
+  {n:"Betenbough Homes",t:"Homebuilder",r:38,pub:false,hq:"Lubbock, TX"},
+  {n:"True Homes",t:"Homebuilder",r:39,pub:false,hq:"Monroe, NC"},
+  {n:"CBH Homes",t:"Homebuilder",r:40,pub:false,hq:"Meridian, ID"},
+  {n:"Bloomfield Homes",t:"Homebuilder",r:41,pub:false,hq:"Plano, TX"},
+  {n:"Minto Communities",t:"Homebuilder",r:42,pub:false,hq:"Coconut Creek, FL"},
+  {n:"Davidson Homes",t:"Homebuilder",r:43,pub:false,hq:"Huntsville, AL"},
+  {n:"GL Homes",t:"Homebuilder",r:44,pub:false,hq:"Sunrise, FL"},
+  {n:"Kolter Homes",t:"Homebuilder",r:45,pub:false,hq:"Delray Beach, FL"},
+  {n:"Eastwood Homes",t:"Homebuilder",r:46,pub:false,hq:"Charlotte, NC"},
+  {n:"Brookfield Residential",t:"Homebuilder",r:47,pub:false,hq:"Calgary, Canada"},
+  {n:"Castlerock Communities",t:"Homebuilder",r:48,pub:false,hq:"Austin, TX"},
+  {n:"Legend Homes",t:"Homebuilder",r:49,pub:false,hq:"Houston, TX"},
+  {n:"BBL Building Co.",t:"Homebuilder",r:50,pub:false,hq:""},
+  {n:"Hancock Builders",t:"Homebuilder",r:51,pub:false,hq:""},
+  {n:"Edge Homes",t:"Homebuilder",r:52,pub:false,hq:"Orem, UT"},
+  {n:"Epcon Communities",t:"Homebuilder",r:53,pub:false,hq:"Dublin, OH"},
+  {n:"Hayden Homes",t:"Homebuilder",r:54,pub:false,hq:"Redmond, OR"},
+  {n:"The Challenger Group",t:"Homebuilder",r:55,pub:false,hq:""},
+  {n:"United Homes Group",t:"Homebuilder",r:56,pub:true,hq:"Myrtle Beach, SC"},
+  {n:"Homes by Westbay",t:"Homebuilder",r:57,pub:false,hq:"Tampa, FL"},
+  {n:"Lifestyle Homes",t:"Homebuilder",r:58,pub:false,hq:""},
+  {n:"Stylecraft Builders",t:"Homebuilder",r:59,pub:false,hq:"Bryan, TX"},
+  {n:"Westin Homes",t:"Homebuilder",r:60,pub:false,hq:"Houston, TX"},
+  {n:"Empire Homes",t:"Homebuilder",r:61,pub:false,hq:""},
+  {n:"Holiday Builders",t:"Homebuilder",r:62,pub:false,hq:"Melbourne, FL"},
+  {n:"First Texas Homes",t:"Homebuilder",r:63,pub:false,hq:"Dallas, TX"},
+  {n:"Ivory Homes",t:"Homebuilder",r:64,pub:false,hq:"Salt Lake City, UT"},
+  {n:"McGuinn Homes",t:"Homebuilder",r:65,pub:false,hq:"Columbia, SC"},
+  {n:"Trumark Homes",t:"Homebuilder",r:66,pub:false,hq:"San Ramon, CA"},
+  {n:"Allen Edwin Homes",t:"Homebuilder",r:67,pub:false,hq:"Kentwood, MI"},
+  {n:"Hakes Brothers",t:"Homebuilder",r:68,pub:false,hq:"El Paso, TX"},
+  {n:"HHHunt Corp.",t:"Homebuilder",r:69,pub:false,hq:"McLean, VA"},
+  {n:"Schuber Mitchell Homes",t:"Homebuilder",r:70,pub:false,hq:"Bentonville, AR"},
+  {n:"Neal Communities",t:"Homebuilder",r:71,pub:false,hq:"Lakewood Ranch, FL"},
+  {n:"NeighborWorks America",t:"Homebuilder",r:72,pub:false,hq:"Washington, DC"},
+  {n:"View Homes",t:"Homebuilder",r:73,pub:false,hq:"El Paso, TX"},
+  {n:"Long Lake Ltd.",t:"Homebuilder",r:74,pub:false,hq:"Houston, TX"},
+  {n:"First America Homes",t:"Homebuilder",r:75,pub:false,hq:""},
+  {n:"McBride & Son Cos.",t:"Homebuilder",r:76,pub:false,hq:"Chesterfield, MO"},
+  {n:"HistoryMaker Homes",t:"Homebuilder",r:77,pub:false,hq:"Grapevine, TX"},
+  {n:"Esperanza Homes",t:"Homebuilder",r:78,pub:false,hq:""},
+  {n:"Jim Chapman Construction",t:"Homebuilder",r:79,pub:false,hq:"Alpharetta, GA"},
+  {n:"Saratoga Homes",t:"Homebuilder",r:80,pub:false,hq:"Houston, TX"},
+  {n:"Ball Homes",t:"Homebuilder",r:81,pub:false,hq:"Lexington, KY"},
+  {n:"Lombardo Homes",t:"Homebuilder",r:82,pub:false,hq:"Shelby Township, MI"},
+  {n:"Colen Built Development",t:"Homebuilder",r:83,pub:false,hq:"Ocala, FL"},
+  {n:"Riverside Homebuilders",t:"Homebuilder",r:84,pub:false,hq:"Fort Worth, TX"},
+  {n:"Stone Martin Builders",t:"Homebuilder",r:85,pub:false,hq:"Opelika, AL"},
+  {n:"Veridian Homes",t:"Homebuilder",r:86,pub:false,hq:"Madison, WI"},
+  {n:"American Legend Homes",t:"Homebuilder",r:87,pub:false,hq:"The Colony, TX"},
+  {n:"Home Creations",t:"Homebuilder",r:88,pub:false,hq:"Yukon, OK"},
+  {n:"Homes by Taber",t:"Homebuilder",r:89,pub:false,hq:"Oklahoma City, OK"},
+  {n:"Chesapeake Homes",t:"Homebuilder",r:90,pub:false,hq:"Virginia Beach, VA"},
+  {n:"Visionary Homes",t:"Homebuilder",r:91,pub:false,hq:"Logan, UT"},
+  {n:"ICI Homes",t:"Homebuilder",r:92,pub:false,hq:"Daytona Beach, FL"},
+  {n:"Christopher Alan Homes",t:"Homebuilder",r:93,pub:false,hq:"Fort Myers, FL"},
+  {n:"San Joaquin Valley Homes",t:"Homebuilder",r:94,pub:false,hq:"Fresno, CA"},
+  {n:"National Home Corp.",t:"Homebuilder",r:95,pub:false,hq:""},
+  {n:"Colina Homes",t:"Homebuilder",r:96,pub:false,hq:"Houston, TX"},
+  {n:"Schell Brothers",t:"Homebuilder",r:97,pub:false,hq:"Rehoboth Beach, DE"},
+  {n:"Olthof Homes",t:"Homebuilder",r:98,pub:false,hq:"Schererville, IN"},
+  {n:"Signature Homes",t:"Homebuilder",r:99,pub:false,hq:"Birmingham, AL"},
+  {n:"Park Square Homes",t:"Homebuilder",r:100,pub:false,hq:"Orlando, FL"},
+  // NEXT 100
+  {n:"Traton Homes",t:"Homebuilder",r:101,pub:false,hq:"Marietta, GA"},
+  {n:"Van Metre Cos.",t:"Homebuilder",r:102,pub:false,hq:"Falls Church, VA"},
+  {n:"Robson Communities",t:"Homebuilder",r:103,pub:false,hq:"Chandler, AZ"},
+  {n:"Keystone Custom Homes",t:"Homebuilder",r:104,pub:false,hq:"Lancaster, PA"},
+  {n:"American Classic Homes",t:"Homebuilder",r:105,pub:false,hq:""},
+  {n:"Williams Homes",t:"Homebuilder",r:106,pub:false,hq:"Santa Clarita, CA"},
+  {n:"Newmark Homes",t:"Homebuilder",r:107,pub:false,hq:"Houston, TX"},
+  {n:"Pacesetter Homes",t:"Homebuilder",r:108,pub:false,hq:"Edmonton, Canada"},
+  {n:"Ole South Properties",t:"Homebuilder",r:109,pub:false,hq:"Murfreesboro, TN"},
+  {n:"Fulton Homes",t:"Homebuilder",r:110,pub:false,hq:"Tempe, AZ"},
+  {n:"McKinley Homes",t:"Homebuilder",r:111,pub:false,hq:"Atlanta, GA"},
+  {n:"AHV Communities",t:"Homebuilder",r:112,pub:false,hq:"San Antonio, TX"},
+  {n:"Celebrity Homes",t:"Homebuilder",r:113,pub:false,hq:"Omaha, NE"},
+  {n:"Berks Homes",t:"Homebuilder",r:114,pub:false,hq:"Fleetwood, PA"},
+  {n:"Landmark 24 Homes",t:"Homebuilder",r:115,pub:false,hq:"Savannah, GA"},
+  {n:"Capstone Homes",t:"Homebuilder",r:116,pub:false,hq:"Minneapolis, MN"},
+  {n:"William Ryan Homes",t:"Homebuilder",r:117,pub:false,hq:"Bannockburn, IL"},
+  {n:"Viera Builders",t:"Homebuilder",r:118,pub:false,hq:"Viera, FL"},
+  {n:"Edwards Homes",t:"Homebuilder",r:119,pub:false,hq:""},
+  {n:"Grand Homes",t:"Homebuilder",r:120,pub:false,hq:"Dallas, TX"},
+  {n:"Ideal Homes",t:"Homebuilder",r:121,pub:false,hq:"Norman, OK"},
+  {n:"BrightSky Residential",t:"Homebuilder",r:122,pub:false,hq:""},
+  {n:"Impression Homes",t:"Homebuilder",r:123,pub:false,hq:"Southlake, TX"},
+  {n:"Valor Communities",t:"Homebuilder",r:124,pub:false,hq:""},
+  {n:"Flintrock Builders",t:"Homebuilder",r:125,pub:false,hq:"Austin, TX"},
+  {n:"Manuel Builders",t:"Homebuilder",r:126,pub:false,hq:"Baton Rouge, LA"},
+  {n:"Elliott Homes",t:"Homebuilder",r:127,pub:false,hq:"Sacramento, CA"},
+  {n:"Rockhaven Homes",t:"Homebuilder",r:128,pub:false,hq:"Atlanta, GA"},
+  {n:"Woodbridge Pacific Group",t:"Homebuilder",r:129,pub:false,hq:"San Diego, CA"},
+  {n:"Smithbilt Homes",t:"Homebuilder",r:130,pub:false,hq:"Knoxville, TN"},
+  {n:"Logan Homes",t:"Homebuilder",r:131,pub:false,hq:"Wilmington, NC"},
+  {n:"Shaddock Homes",t:"Homebuilder",r:132,pub:false,hq:"Plano, TX"},
+  {n:"Flagship Homes",t:"Homebuilder",r:133,pub:false,hq:"Provo, UT"},
+  {n:"John Mourier Construction",t:"Homebuilder",r:134,pub:false,hq:"Sacramento, CA"},
+  {n:"Direct Residential Communities",t:"Homebuilder",r:135,pub:false,hq:""},
+  {n:"Cole West",t:"Homebuilder",r:136,pub:false,hq:""},
+  {n:"Copper Builders",t:"Homebuilder",r:137,pub:false,hq:""},
+  {n:"Regent Homes",t:"Homebuilder",r:138,pub:false,hq:"Charlotte, NC"},
+  {n:"Level Homes",t:"Homebuilder",r:139,pub:false,hq:"Baton Rouge, LA"},
+  {n:"Eastbrook Homes",t:"Homebuilder",r:140,pub:false,hq:"Grand Rapids, MI"},
+  {n:"Garman Homes",t:"Homebuilder",r:141,pub:false,hq:"Raleigh, NC"},
+  {n:"Angle Homes",t:"Homebuilder",r:142,pub:false,hq:""},
+  {n:"Peachtree Building Group",t:"Homebuilder",r:143,pub:false,hq:"Atlanta, GA"},
+  {n:"United Built Homes",t:"Homebuilder",r:144,pub:false,hq:"Nacogdoches, TX"},
+  {n:"Greenwood Homes",t:"Homebuilder",r:145,pub:false,hq:"Raleigh, NC"},
+  {n:"John Balfanz Homes",t:"Homebuilder",r:146,pub:false,hq:""},
+  {n:"Elite Properties of America",t:"Homebuilder",r:147,pub:false,hq:""},
+  {n:"Bridge Tower Homes",t:"Homebuilder",r:148,pub:false,hq:"Boise, ID"},
+  {n:"Mainvue Homes",t:"Homebuilder",r:149,pub:false,hq:"Seattle, WA"},
+  {n:"Pratt Home Builders",t:"Homebuilder",r:150,pub:false,hq:"Huntsville, AL"},
+  {n:"A. Sydes Construction",t:"Homebuilder",r:151,pub:false,hq:"Fayetteville, NC"},
+  {n:"Parkland Communities",t:"Homebuilder",r:152,pub:false,hq:""},
+  {n:"Partners in Building",t:"Homebuilder",r:153,pub:false,hq:"Houston, TX"},
+  {n:"Northway Homes",t:"Homebuilder",r:154,pub:false,hq:""},
+  {n:"Turner Homes",t:"Homebuilder",r:155,pub:false,hq:""},
+  {n:"Jerry's Homes",t:"Homebuilder",r:156,pub:false,hq:"Des Moines, IA"},
+  {n:"MTT Homes",t:"Homebuilder",r:157,pub:false,hq:""},
+  {n:"Nilson Homes",t:"Homebuilder",r:158,pub:false,hq:""},
+  {n:"Main Street Homes",t:"Homebuilder",r:159,pub:false,hq:"Richmond, VA"},
+  {n:"Landon Homes",t:"Homebuilder",r:160,pub:false,hq:"Frisco, TX"},
+  {n:"Coaston Homes",t:"Homebuilder",r:161,pub:false,hq:"Fort Myers, FL"},
+  {n:"Brown Haven Homes",t:"Homebuilder",r:162,pub:false,hq:"Waleska, GA"},
+  {n:"Baessler Homes",t:"Homebuilder",r:163,pub:false,hq:"Greeley, CO"},
+  {n:"Robert Thomas Homes",t:"Homebuilder",r:164,pub:false,hq:"Minneapolis, MN"},
+  {n:"Ben Stout Construction",t:"Homebuilder",r:165,pub:false,hq:""},
+  {n:"EYA",t:"Homebuilder",r:166,pub:false,hq:"Bethesda, MD"},
+  {n:"Piedmont Residential",t:"Homebuilder",r:167,pub:false,hq:"Atlanta, GA"},
+  {n:"Creative Homes",t:"Homebuilder",r:168,pub:false,hq:"Minneapolis, MN"},
+  {n:"Simmons Homes",t:"Homebuilder",r:169,pub:false,hq:"Tulsa, OK"},
+  {n:"Bill Beazley Homes",t:"Homebuilder",r:170,pub:false,hq:"Augusta, GA"},
+  {n:"13th Floor Homes",t:"Homebuilder",r:171,pub:false,hq:"Miami, FL"},
+  {n:"Tim O'Brien Homes",t:"Homebuilder",r:172,pub:false,hq:"Naperville, IL"},
+  {n:"Ivey Homes",t:"Homebuilder",r:173,pub:false,hq:"Augusta, GA"},
+  {n:"John Houston Homes",t:"Homebuilder",r:174,pub:false,hq:"Midlothian, TX"},
+  {n:"Bonadelle Neighborhoods",t:"Homebuilder",r:175,pub:false,hq:"Fresno, CA"},
+  {n:"StyleCraft Homes",t:"Homebuilder",r:176,pub:false,hq:"Richmond, VA"},
+  {n:"Traditions of America",t:"Homebuilder",r:177,pub:false,hq:"Bethlehem, PA"},
+  {n:"Southern Homes",t:"Homebuilder",r:178,pub:false,hq:""},
+  {n:"Tresidio Homes",t:"Homebuilder",r:179,pub:false,hq:"Boise, ID"},
+  {n:"Charter Homes and Neighborhoods",t:"Homebuilder",r:180,pub:false,hq:"Lancaster, PA"},
+  {n:"Keystone Construction",t:"Homebuilder",r:181,pub:false,hq:""},
+  {n:"JP Brooks Builders",t:"Homebuilder",r:182,pub:false,hq:"Minneapolis, MN"},
+  {n:"UnionMain Homes",t:"Homebuilder",r:183,pub:false,hq:"Dallas, TX"},
+  {n:"Flight Building",t:"Homebuilder",r:184,pub:false,hq:""},
+  {n:"Reliant Homes",t:"Homebuilder",r:185,pub:false,hq:"Atlanta, GA"},
+  {n:"Buffington Homes of Arkansas",t:"Homebuilder",r:186,pub:false,hq:"Little Rock, AR"},
+  {n:"New Tradition Homes",t:"Homebuilder",r:187,pub:false,hq:"Vancouver, WA"},
+  {n:"Legacy South",t:"Homebuilder",r:188,pub:false,hq:""},
+  {n:"Homes By Dickerson",t:"Homebuilder",r:189,pub:false,hq:"Raleigh, NC"},
+  {n:"Executive Construction Homes",t:"Homebuilder",r:190,pub:false,hq:""},
+  {n:"My Home Communities",t:"Homebuilder",r:191,pub:false,hq:"Atlanta, GA"},
+  {n:"Veranda Homes",t:"Homebuilder",r:192,pub:false,hq:""},
+  {n:"Holland Homes",t:"Homebuilder",r:193,pub:false,hq:"Auburn, AL"},
+  {n:"Stock Development",t:"Homebuilder",r:194,pub:false,hq:"Naples, FL"},
+  {n:"The Olson Co.",t:"Homebuilder",r:195,pub:false,hq:"Seal Beach, CA"},
+  {n:"Windsor Homes",t:"Homebuilder",r:196,pub:false,hq:""},
+  {n:"Ence Construction",t:"Homebuilder",r:197,pub:false,hq:"St. George, UT"},
+  {n:"Soundbuilt Homes",t:"Homebuilder",r:198,pub:false,hq:"Kent, WA"},
+  {n:"Jenuane Communities",t:"Homebuilder",r:199,pub:false,hq:""},
+  {n:"Stepping Stone Homes",t:"Homebuilder",r:200,pub:false,hq:"Colorado Springs, CO"},
+  {n:"Centra Homes",t:"Homebuilder",r:null,pub:false,hq:"Minneapolis, MN"},
+  // LAND BANKERS
+  {n:"Millrose Properties",t:"Land Banker",r:null,pub:true,hq:"Miami, FL"},
+  {n:"Forestar Group",t:"Land Banker",r:null,pub:true,hq:"Arlington, TX"},
+  {n:"Walton Global",t:"Land Banker",r:null,pub:false,hq:"Scottsdale, AZ"},
+  {n:"Essential Housing",t:"Land Banker",r:null,pub:false,hq:""},
+  // REITS / SFR
+  {n:"Invitation Homes",t:"REIT / SFR",r:null,pub:true,hq:"Dallas, TX"},
+  {n:"American Homes 4 Rent",t:"REIT / SFR",r:null,pub:true,hq:"Las Vegas, NV"},
+  {n:"Progress Residential",t:"REIT / SFR",r:null,pub:false,hq:"Scottsdale, AZ"},
+  {n:"FirstKey Homes",t:"REIT / SFR",r:null,pub:false,hq:"Atlanta, GA"},
+  {n:"Tricon Residential",t:"REIT / SFR",r:null,pub:true,hq:"Toronto, Canada"},
+  // DEVELOPERS
+  {n:"Howard Hughes Holdings",t:"Developer",r:null,pub:true,hq:"The Woodlands, TX"},
+  {n:"Newland Real Estate Group",t:"Developer",r:null,pub:false,hq:"San Diego, CA"},
+  {n:"Irvine Company",t:"Developer",r:null,pub:false,hq:"Newport Beach, CA"},
+  // DC OWNERS / HYPERSCALERS
+  {n:"Microsoft / Azure",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Redmond, WA"},
+  {n:"Google / DeepMind",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Mountain View, CA"},
+  {n:"Amazon Web Services",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Seattle, WA"},
+  {n:"Meta",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Menlo Park, CA"},
+  {n:"Apple",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Cupertino, CA"},
+  {n:"Oracle",t:"DC Owner / Hyperscaler",r:null,pub:true,hq:"Austin, TX"},
+  // DC COLO / DEVELOPERS
+  {n:"Vantage Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Santa Clara, CA"},
+  {n:"Stream Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Dallas, TX"},
+  {n:"EdgeCore Digital Infrastructure",t:"DC Colo / Developer",r:null,pub:false,hq:"Denver, CO"},
+  {n:"Edged (Edged Energy)",t:"DC Colo / Developer",r:null,pub:false,hq:"Denver, CO"},
+  {n:"Takanock",t:"DC Colo / Developer",r:null,pub:false,hq:"Phoenix, AZ"},
+  {n:"Equinix",t:"DC Colo / Developer",r:null,pub:true,hq:"Redwood City, CA"},
+  {n:"Digital Realty",t:"DC Colo / Developer",r:null,pub:true,hq:"Austin, TX"},
+  {n:"QTS Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Overland Park, KS"},
+  {n:"Aligned Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Irving, TX"},
+  {n:"CyrusOne",t:"DC Colo / Developer",r:null,pub:false,hq:"Dallas, TX"},
+  {n:"Iron Mountain",t:"DC Colo / Developer",r:null,pub:true,hq:"Boston, MA"},
+  {n:"Switch",t:"DC Colo / Developer",r:null,pub:false,hq:"Las Vegas, NV"},
+  {n:"NTT Global Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Tokyo, Japan"},
+  {n:"Sabey Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Seattle, WA"},
+  {n:"Flexential",t:"DC Colo / Developer",r:null,pub:false,hq:"Denver, CO"},
+  {n:"H5 Data Centers",t:"DC Colo / Developer",r:null,pub:false,hq:"Denver, CO"},
+  {n:"EdgeConnex",t:"DC Colo / Developer",r:null,pub:false,hq:"West Palm Beach, FL"},
+  {n:"ColoBarn",t:"DC Colo / Developer",r:null,pub:false,hq:"Phoenix, AZ"},
+  {n:"phoenixNAP",t:"DC Colo / Developer",r:null,pub:false,hq:"Phoenix, AZ"},
+  {n:"Centersquare",t:"DC Colo / Developer",r:null,pub:false,hq:""},
+  {n:"DCX",t:"DC Colo / Developer",r:null,pub:false,hq:"Goodyear, AZ"},
+  // DC GC / CONSTRUCTION
+  {n:"Mortenson",t:"DC GC / Construction",r:null,pub:false,hq:"Minneapolis, MN"},
+  {n:"JE Dunn",t:"DC GC / Construction",r:null,pub:false,hq:"Kansas City, MO"},
+  {n:"Turner Construction",t:"DC GC / Construction",r:null,pub:false,hq:"New York, NY"},
+  {n:"DPR Construction",t:"DC GC / Construction",r:null,pub:false,hq:"Redwood City, CA"},
+  {n:"HITT Contracting",t:"DC GC / Construction",r:null,pub:false,hq:"Falls Church, VA"},
+  {n:"Clayco",t:"DC GC / Construction",r:null,pub:false,hq:"Chicago, IL"},
+  {n:"Archer Western (Walsh Group)",t:"DC GC / Construction",r:null,pub:false,hq:"Chicago, IL"},
+  {n:"McCarthy Building Companies",t:"DC GC / Construction",r:null,pub:false,hq:"St. Louis, MO"},
+  {n:"Sundt Construction",t:"DC GC / Construction",r:null,pub:false,hq:"Tempe, AZ"},
+  {n:"PCL Construction",t:"DC GC / Construction",r:null,pub:false,hq:"Denver, CO"},
+  {n:"Hensel Phelps",t:"DC GC / Construction",r:null,pub:false,hq:"Greeley, CO"},
+  {n:"Skanska",t:"DC GC / Construction",r:null,pub:false,hq:"New York, NY"},
+  {n:"Whiting-Turner",t:"DC GC / Construction",r:null,pub:false,hq:"Baltimore, MD"},
+  {n:"Hoffman Construction",t:"DC GC / Construction",r:null,pub:false,hq:"Portland, OR"},
+  // DC COMMISSIONING
+  {n:"Streamline Automation (SLA)",t:"DC Commissioning",r:null,pub:false,hq:"Phoenix, AZ"},
+  {n:"E2E",t:"DC Commissioning",r:null,pub:false,hq:""},
+  {n:"Primary Integration (Bureau Veritas)",t:"DC Commissioning",r:null,pub:false,hq:""},
+  {n:"NV5",t:"DC Commissioning",r:null,pub:false,hq:"Hollywood, FL"},
+  {n:"WSP Cx",t:"DC Commissioning",r:null,pub:true,hq:"New York, NY"},
+  {n:"Jacobs Cx",t:"DC Commissioning",r:null,pub:true,hq:"Dallas, TX"},
+  {n:"Cumming Group",t:"DC Commissioning",r:null,pub:false,hq:"Atlanta, GA"},
+  {n:"AHA Consulting Engineers",t:"DC Commissioning",r:null,pub:false,hq:""},
+  {n:"Bernhard Cx",t:"DC Commissioning",r:null,pub:false,hq:"Baton Rouge, LA"},
+  {n:"Horizon Engineering",t:"DC Commissioning",r:null,pub:false,hq:""},
+  // DC SUBCONTRACTORS
+  {n:"Rosendin Electric",t:"DC Subcontractor",r:null,pub:false,hq:"San Jose, CA"},
+  {n:"M.C. Dean",t:"DC Subcontractor",r:null,pub:false,hq:"Dulles, VA"},
+  {n:"Faith Technologies (FSG)",t:"DC Subcontractor",r:null,pub:false,hq:"Menasha, WI"},
+  {n:"Southland Industries",t:"DC Subcontractor",r:null,pub:false,hq:"Garden Grove, CA"},
+  {n:"TDIndustries",t:"DC Subcontractor",r:null,pub:false,hq:"Dallas, TX"},
+  {n:"IES",t:"DC Subcontractor",r:null,pub:true,hq:"Houston, TX"},
+  {n:"Walker Engineering",t:"DC Subcontractor",r:null,pub:false,hq:"Dallas, TX"},
+  {n:"Baker Electric",t:"DC Subcontractor",r:null,pub:false,hq:"Escondido, CA"},
+  {n:"Cupertino Electric",t:"DC Subcontractor",r:null,pub:false,hq:"San Jose, CA"},
+  {n:"Corbins Electric",t:"DC Subcontractor",r:null,pub:false,hq:"Phoenix, AZ"},
+  // COMMERCIAL / BANKS / FOREIGN
+  {n:"Prologis",t:"Commercial / Industrial",r:null,pub:true,hq:"San Francisco, CA"},
+  {n:"Lincoln Property Co.",t:"Commercial / Industrial",r:null,pub:false,hq:"Dallas, TX"},
+  {n:"Western Alliance Bank",t:"Bank / Lender",r:null,pub:true,hq:"Phoenix, AZ"},
+  {n:"Pacific Premier Bank",t:"Bank / Lender",r:null,pub:true,hq:"Irvine, CA"},
+  {n:"Sumitomo Forestry",t:"Home Office / Foreign",r:null,pub:true,hq:"Tokyo, Japan"},
+  {n:"Sekisui House (Japan)",t:"Home Office / Foreign",r:null,pub:true,hq:"Osaka, Japan"}
 ];
 
-function buildWGT() {
-  try { var s=localStorage.getItem('tg_wgt'); if(s) wgtData=JSON.parse(s); } catch(e){}
-  var tb = document.getElementById('wgt-body');
-  if (!tb) return;
-  tb.innerHTML = '';
-  var days = ['mon','tue','wed','thu','fri'];
-  wgtRows.forEach(function(row) {
-    var tr = document.createElement('tr');
-    var tgt = wgtData.targets[row.key] || row.target;
-    var total = days.reduce(function(s,d){ return s + ((wgtData.days[d]&&wgtData.days[d][row.key])||0); }, 0);
-    var color = total >= tgt ? '#0F6E56' : total > 0 ? '#BA7517' : '#888780';
-    var html = '<td style="padding:6px 10px;font-weight:600;border-bottom:1px solid #f0f0ea;">'+row.label+'</td>';
-    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #f0f0ea;"><input type="number" min="0" value="'+tgt+'" style="width:50px;text-align:center;font-size:12px;font-family:Arial;padding:2px;border:1px solid #e0e0d8;border-radius:4px;" onchange="wgtData.targets[\''+row.key+'\']=parseInt(this.value)||0;recalcWGT(\''+row.key+'\');saveWGT()"></td>';
-    days.forEach(function(d) {
-      var v = (wgtData.days[d]&&wgtData.days[d][row.key])||0;
-      html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #f0f0ea;"><input type="number" min="0" value="'+v+'" id="wgt-'+row.key+'-'+d+'" style="width:50px;text-align:center;font-size:13px;font-family:Arial;padding:2px;border:1px solid #e0e0d8;border-radius:4px;" onchange="updateWGT(\''+row.key+'\',\''+d+'\',this.value)"></td>';
+var TG_REGIONS = {
+  "Texas":["Dallas, TX","Houston, TX","San Antonio, TX","Austin, TX","Fort Worth, TX"],
+  "Southwest":["Phoenix, AZ","Tucson, AZ","Las Vegas, NV","Oklahoma City, OK","Albuquerque, NM"],
+  "Southeast":["Atlanta, GA","Charlotte, NC","Raleigh, NC","Nashville, TN","Orlando, FL","Tampa, FL","Miami, FL","Jacksonville, FL","Sarasota, FL","Lakeland, FL","Fort Myers, FL","Myrtle Beach, SC","Charleston, SC","Huntsville, AL","Greenville, SC","Wilmington, NC"],
+  "Mountain":["Denver, CO","Boise, ID","Salt Lake City, UT","Provo, UT","Reno, NV","Colorado Springs, CO"],
+  "West Coast":["Los Angeles, CA","San Diego, CA","Sacramento, CA","Seattle, WA","Portland, OR","Riverside, CA","Fresno, CA","San Francisco, CA"],
+  "DC West Markets":["Central WA (Quincy/Moses Lake)","Hillsboro, OR"],
+  "Midwest":["Chicago, IL","Indianapolis, IN","Minneapolis, MN","Columbus, OH","Cincinnati, OH","Kansas City, MO","St. Louis, MO"],
+  "Mid-Atlantic":["Washington, DC","Philadelphia, PA","Richmond, VA","Baltimore, MD","Virginia Beach, VA"],
+  "Northeast":["New York, NY","Boston, MA"],
+  "National":["National","Remote"]
+};
+
+var TG_ORG_ROLES = [
+  {fn:"Executive",roles:["Division President","VP Operations","Regional VP"]},
+  {fn:"Land",roles:["VP Land Acquisition","Sr. Land Acq Manager","Land Acq Manager","Entitlement Manager","Sr. Entitlement Coordinator"]},
+  {fn:"Land Development",roles:["VP Land Development","Land Dev Manager","Sr. Project Manager","Project Manager","Project Manager II"]},
+  {fn:"Finance",roles:["Division CFO","Sr. Financial Analyst","Financial Analyst","Controller"]},
+  {fn:"Purchasing",roles:["Director of Purchasing","Purchasing Manager","Trade Partner Coordinator"]},
+  {fn:"Construction",roles:["Director of Construction","Area Construction Manager","Superintendent","Superintendent II","Assistant Superintendent"]},
+  {fn:"Sales",roles:["Director of Sales","Area Sales Manager","Sales Counselor","Online Sales Counselor"]},
+  {fn:"HR",roles:["HR Manager","Talent Acquisition Partner"]}
+];
+
+// ---- SAVE / LOAD (OneDrive + localStorage) ----
+var MS_INTEL_PATH = '/me/drive/root:/TG Command Center/TG_Intelligence.json:/content';
+var MS_PROJECTS_PATH = '/me/drive/root:/TG Command Center/TG_Projects.json:/content';
+
+function intelSave() {
+  try { localStorage.setItem('TG_INTEL_CACHE', JSON.stringify(intelDB)); } catch(e) {}
+  try { localStorage.setItem('TG_PROJECTS_CACHE', JSON.stringify(projectDB)); } catch(e) {}
+  try { localStorage.setItem('TG_PEOPLE_CACHE', JSON.stringify(peopleDB)); } catch(e) {}
+  try { localStorage.setItem('TG_DIV_CACHE', JSON.stringify(divProfiles)); } catch(e) {}
+  saveIntelToOneDrive();
+}
+
+function loadIntelCache() {
+  try { var c = localStorage.getItem('TG_INTEL_CACHE'); if(c) intelDB = JSON.parse(c); } catch(e) {}
+  try { var c = localStorage.getItem('TG_PROJECTS_CACHE'); if(c) projectDB = JSON.parse(c); } catch(e) {}
+  try { var c = localStorage.getItem('TG_PEOPLE_CACHE'); if(c) peopleDB = JSON.parse(c); } catch(e) {}
+  try { var c = localStorage.getItem('TG_DIV_CACHE'); if(c) divProfiles = JSON.parse(c); } catch(e) {}
+  renderIntel();
+  renderIntelStats();
+}
+
+async function saveIntelToOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    var payload = { intel: intelDB, projects: projectDB, people: peopleDB, divProfiles: divProfiles };
+    await fetch('https://graph.microsoft.com/v1.0' + MS_INTEL_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload, null, 2)
     });
-    html += '<td id="wgt-tot-'+row.key+'" style="padding:6px;text-align:center;border-bottom:1px solid #f0f0ea;font-weight:700;color:'+color+';">'+total+' / '+tgt+'</td>';
-    tr.innerHTML = html;
-    tb.appendChild(tr);
+  } catch(e) { console.log('Intel save error:', e.message); }
+}
+
+async function loadIntelFromOneDrive() {
+  var syncLabel = document.getElementById('intel-sync-label');
+  if (syncLabel) syncLabel.textContent = 'Loading from OneDrive...';
+  var token = await getMSToken();
+  if (!token) { if (syncLabel) syncLabel.textContent = 'Not connected'; return; }
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0' + MS_INTEL_PATH, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      if (data.intel) {
+        intelDB = data.intel || [];
+        projectDB = data.projects || [];
+        peopleDB = data.people || [];
+        divProfiles = data.divProfiles || {};
+        localStorage.setItem('TG_INTEL_CACHE', JSON.stringify(intelDB));
+        localStorage.setItem('TG_PROJECTS_CACHE', JSON.stringify(projectDB));
+        localStorage.setItem('TG_PEOPLE_CACHE', JSON.stringify(peopleDB));
+        localStorage.setItem('TG_DIV_CACHE', JSON.stringify(divProfiles));
+        if (syncLabel) syncLabel.textContent = intelDB.length + ' signals · ' + peopleDB.length + ' people · ' + projectDB.length + ' projects';
+        renderIntel();
+        renderIntelStats();
+        return;
+      } else if (Array.isArray(data)) {
+        // Legacy format
+        intelDB = data;
+        if (syncLabel) syncLabel.textContent = intelDB.length + ' entries loaded';
+        renderIntel();
+        renderIntelStats();
+        return;
+      }
+    }
+  } catch(e) { console.log('Intel load error:', e.message); }
+  if (syncLabel) syncLabel.textContent = 'Using cached data';
+}
+
+// ---- DROPDOWN BUILDERS ----
+function intelCoOpts(blank) {
+  var h = blank ? '<option value="">-- select company</option>' : '<option value="">All companies</option>';
+  var g = {};
+  TG_COMPANIES.forEach(function(c){ if(!g[c.t])g[c.t]=[]; g[c.t].push(c.n); });
+  Object.keys(g).forEach(function(t){
+    h += '<optgroup label="' + t + '">';
+    g[t].forEach(function(n){ h += '<option>' + n + '</option>'; });
+    h += '</optgroup>';
   });
+  return h;
+}
+function intelMktOpts(blank) {
+  var h = blank ? '<option value="">-- select market</option>' : '<option value="">All markets</option>';
+  Object.keys(TG_REGIONS).forEach(function(r){
+    h += '<optgroup label="' + r + '">';
+    TG_REGIONS[r].forEach(function(m){ h += '<option>' + m + '</option>'; });
+    h += '</optgroup>';
+  });
+  return h;
+}
+function populateIntelDropdowns() {
+  var co = intelCoOpts(true);
+  var mkt = intelMktOpts(true);
+  ['il-co','il-mkt','ip-co','ip-mkt','ipr-dev','ipr-bldr'].forEach(function(id){
+    var e = document.getElementById(id); if(e) e.innerHTML = (id.indexOf('il-') === 0 || id.indexOf('ip-') === 0 || id.indexOf('ipr-') === 0) ? (id === 'il-co' || id === 'ipr-dev' || id === 'ipr-bldr' || id === 'ip-co' ? co : mkt) : co;
+  });
+  var fco = document.getElementById('intel-filter-company');
+  if(fco) fco.innerHTML = intelCoOpts(false);
+  var fmkt = document.getElementById('intel-filter-market');
+  if(fmkt) fmkt.innerHTML = intelMktOpts(false);
 }
 
-function updateWGT(key, day, val) {
-  if (!wgtData.days[day]) wgtData.days[day] = {};
-  wgtData.days[day][key] = parseInt(val)||0;
-  recalcWGT(key);
-  saveWGT();
+// ---- INTEL MODAL ----
+var intelModalMode = 'signal';
+function openIntelModal(mode) {
+  intelModalMode = mode;
+  populateIntelDropdowns();
+  document.getElementById('intel-modal-signal').style.display = mode === 'signal' ? 'block' : 'none';
+  document.getElementById('intel-modal-person').style.display = mode === 'people' ? 'block' : 'none';
+  document.getElementById('intel-modal-project').style.display = mode === 'project' ? 'block' : 'none';
+  document.getElementById('intel-modal-bg').style.display = 'flex';
+}
+function closeIntelModal() {
+  document.getElementById('intel-modal-bg').style.display = 'none';
+}
+function switchIntelModalMode(mode) {
+  intelModalMode = mode;
+  ['signal','people','project'].forEach(function(m){
+    document.getElementById('intel-modal-' + m).style.display = m === mode ? 'block' : 'none';
+    var btn = document.getElementById('imt-' + m);
+    if(btn) btn.style.background = m === mode ? '#1D9E75' : '#e8e6e0';
+    if(btn) btn.style.color = m === mode ? 'white' : '#2c2c2a';
+  });
+  populateIntelDropdowns();
 }
 
-function recalcWGT(key) {
-  var days = ['mon','tue','wed','thu','fri'];
-  var total = days.reduce(function(s,d){ return s+((wgtData.days[d]&&wgtData.days[d][key])||0); }, 0);
-  var tgt = wgtData.targets[key]||0;
-  var el = document.getElementById('wgt-tot-'+key);
-  if (el) { el.textContent = total+' / '+tgt; el.style.color = total>=tgt?'#0F6E56':total>0?'#BA7517':'#888780'; }
+function iVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+
+function saveIntelEntry() {
+  var id = 'TGI_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  var date = new Date().toLocaleDateString();
+  if (intelModalMode === 'signal') {
+    var sig = iVal('il-sig'); var notes = iVal('il-notes');
+    if (!sig) { alert('Signal type required.'); return; }
+    if (!notes) { alert('Notes required.'); return; }
+    intelDB.unshift({id:id,date:date,entry_type:'signal',signal:sig,company:iVal('il-co'),market:iVal('il-mkt'),btype:iVal('il-bt'),fn:iVal('il-fn'),heat:iVal('il-heat'),notes:notes,next:iVal('il-next'),source:iVal('il-source')});
+    ['il-sig','il-co','il-mkt','il-bt','il-fn','il-notes','il-next'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
+  } else if (intelModalMode === 'people') {
+    var nm = iVal('ip-name'); if(!nm){alert('Name required.');return;}
+    peopleDB.unshift({id:id,date:date,name:nm,title:iVal('ip-title'),company:iVal('ip-co'),market:iVal('ip-mkt'),fn:iVal('ip-fn'),status:iVal('ip-status'),comp:iVal('ip-comp'),reports:iVal('ip-reports'),notes:iVal('ip-notes'),next:iVal('ip-next')});
+    ['ip-name','ip-title','ip-comp','ip-reports','ip-notes','ip-next'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
+  } else {
+    var pn = iVal('ipr-name'); if(!pn){alert('Project name required.');return;}
+    projectDB.unshift({id:id,date:date,name:pn,developer:iVal('ipr-dev'),builder:iVal('ipr-bldr'),market:iVal('ipr-mkt'),type:iVal('ipr-type'),stage:iVal('ipr-stage'),scale:iVal('ipr-scale'),hireTiming:iVal('ipr-hire'),orgNotes:iVal('ipr-org'),notes:iVal('ipr-notes')});
+    ['ipr-name','ipr-scale','ipr-hire','ipr-org','ipr-notes'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
+  }
+  intelSave();
+  renderIntel();
+  renderIntelStats();
+  closeIntelModal();
 }
 
-function saveWGT() {
-  try { localStorage.setItem('tg_wgt', JSON.stringify(wgtData)); } catch(e) {}
+// ---- PASTE BLOCK PARSER ----
+function saveIntelBlock() {
+  var raw = ((document.getElementById('intel-paste-block')||{value:''}).value||'').trim();
+  if (!raw) { alert('Paste an intelligence block first.'); return; }
+  var entries = [];
+  raw.split('---ENTRY---').filter(function(b){return b.trim();}).forEach(function(block){
+    var entry = {id:'TGI_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), date:new Date().toLocaleDateString()};
+    block.split('\n').map(function(l){return l.trim();}).filter(Boolean).forEach(function(line){
+      var i = line.indexOf(':'); if(i<0)return;
+      var k = line.slice(0,i).trim().toLowerCase().replace(/ /g,'_');
+      var val = line.slice(i+1).trim();
+      if(k==='type') entry.entry_type = val.toLowerCase()==='signal'?'signal':'person';
+      else if(k==='name') entry.name=val;
+      else if(k==='title') entry.title=val;
+      else if(k==='company'||k==='builder') entry.company=val;
+      else if(k==='market') entry.market=val;
+      else if(k==='function') entry.fn=val;
+      else if(k==='signal') entry.signal=val;
+      else if(k==='heat') entry.heat=val.toLowerCase();
+      else if(k==='comp') entry.comp=val;
+      else if(k==='notes'||k==='intel') entry.notes=val;
+      else if(k==='source') entry.source=val;
+      else if(k==='next_action'||k==='next') entry.next=val;
+    });
+    if(entry.name) { entry.entry_type='person'; if(entry.name||entry.notes) entries.push(entry); }
+    else if(entry.notes) { entry.entry_type='signal'; entries.push(entry); }
+  });
+  if(!entries.length){alert('No valid entries found.');return;}
+  entries.forEach(function(e){ intelDB.unshift(e); });
+  intelSave();
+  renderIntel();
+  renderIntelStats();
+  var el=document.getElementById('intel-paste-block'); if(el)el.value='';
+  var s=document.getElementById('intel-block-status');
+  if(s){s.style.display='inline';s.textContent=entries.length+' entries saved to OneDrive.';setTimeout(function(){s.style.display='none';},4000);}
 }
 
-init();
-loadIntel();
-loadAirtableSettings();
-buildWGT();
+// ---- RENDER INTEL (FEED VIEW) ----
+var SC={'Hiring':'sig-green','Job Posting':'sig-green','Layoff':'sig-red','Org Change':'sig-amber','Leadership Move':'sig-amber','Project Announced':'sig-blue','Land Acquisition':'sig-blue','Market Expansion':'sig-purple','M&A':'sig-coral','Earnings / Financial':'sig-gray','BD Signal':'sig-purple','Timing Flag':'sig-amber','Comp Data':'sig-gray','Article / News':'sig-gray'};
+var HC={hot:'sig-coral',warm:'sig-amber',cold:'sig-blue'};
+
+function renderIntel() {
+  var view = document.getElementById('intel-view-sel');
+  var currentView = view ? view.value : 'feed';
+  if(currentView === 'companies') { renderIntelCompanies(); return; }
+  if(currentView === 'markets') { renderIntelMarkets(); return; }
+  if(currentView === 'people') { renderIntelPeople(); return; }
+  if(currentView === 'projects') { renderIntelProjects(); return; }
+  renderIntelFeed();
+}
+
+function renderIntelFeed() {
+  var q = ((document.getElementById('intel-search')||{value:''}).value||'').toLowerCase();
+  var fbt = iVal('intel-filter-btype');
+  var fsig = iVal('intel-filter-signal');
+  var fco = iVal('intel-filter-company');
+  var fmkt = iVal('intel-filter-market');
+  var ffn = iVal('intel-filter-fn');
+  var fheat = iVal('intel-filter-heat');
+
+  var items = intelDB.filter(function(d){
+    if(q && !JSON.stringify(d).toLowerCase().includes(q)) return false;
+    if(fbt && d.btype !== fbt) return false;
+    if(fsig && d.signal !== fsig) return false;
+    if(fco && d.company !== fco) return false;
+    if(fmkt && d.market !== fmkt) return false;
+    if(ffn && d.fn !== ffn) return false;
+    if(fheat && d.heat !== fheat) return false;
+    return true;
+  });
+
+  var el = document.getElementById('intel-cards');
+  if(!el) return;
+
+  if(!items.length){
+    el.innerHTML = '<div style="color:#888780;font-style:italic;font-size:13px;padding:20px 0;text-align:center;">No intel matches your filters. Hit "+ Add Signal" to start logging.</div>';
+    return;
+  }
+
+  el.innerHTML = items.map(function(d){
+    var idx = intelDB.indexOf(d);
+    var sc = SC[d.signal] || 'sig-gray';
+    var hc = HC[d.heat] || 'sig-gray';
+    var isPerson = d.entry_type === 'person' || d.name;
+    return '<div class="card" style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
+        '<div>' +
+          '<div style="font-size:14px;font-weight:600;">' +
+            (isPerson ? (d.name||'Person') : (d.signal||'Signal')) +
+            (d.company ? ' <span style="font-weight:400;color:#888780;"> &mdash; </span><span style="color:#378ADD;cursor:pointer;" onclick="intelFilterByCo(\'' + esc(d.company) + '\')">' + esc(d.company) + '</span>' : '') +
+          '</div>' +
+          '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' +
+            (d.signal ? '<span class="' + sc + '" style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;">' + esc(d.signal) + '</span>' : '') +
+            (d.market ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#F1EFE8;color:#5F5E5A;cursor:pointer;" onclick="intelFilterByMkt(\'' + esc(d.market) + '\')">' + esc(d.market) + '</span>' : '') +
+            (d.btype ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#EEEDFE;color:#26215C;">' + esc(d.btype) + '</span>' : '') +
+            (d.fn ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#FAEEDA;color:#633806;">' + esc(d.fn) + '</span>' : '') +
+            (d.heat ? '<span class="' + hc + '" style="font-size:10px;padding:2px 7px;border-radius:4px;">' + d.heat + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<button onclick="deleteIntelEntry(' + idx + ')" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:18px;opacity:.5;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">&#x00D7;</button>' +
+      '</div>' +
+      (d.notes ? '<div style="font-size:13px;color:#5F5E5A;line-height:1.6;margin-bottom:8px;">' + esc(d.notes) + '</div>' : '') +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:5px;">' +
+        '<span style="font-size:11px;color:#888780;">' + esc(d.source||'') + (d.source?' &middot; ':'') + (d.date||'') + '</span>' +
+        (d.next ? '<span style="font-size:11px;color:#378ADD;background:#EAF3FB;padding:3px 8px;border-radius:4px;">&rarr; ' + esc(d.next) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderIntelCompanies() {
+  var el = document.getElementById('intel-cards'); if(!el)return;
+  var q = ((document.getElementById('intel-search')||{value:''}).value||'').toLowerCase();
+  var fbt = iVal('intel-filter-btype');
+  var html = '';
+  var groups = {};
+  TG_COMPANIES.forEach(function(c){
+    if(fbt && c.t !== fbt) return;
+    if(q && !c.n.toLowerCase().includes(q)) return;
+    if(!groups[c.t]) groups[c.t] = [];
+    groups[c.t].push(c);
+  });
+  Object.keys(groups).forEach(function(t){
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#888780;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">' + t + '</div>';
+    groups[t].forEach(function(c){
+      var intel = intelDB.filter(function(d){return d.company===c.n;}).length;
+      var people = peopleDB.filter(function(d){return d.company===c.n;}).length;
+      var mkts = new Set();
+      intelDB.forEach(function(d){if(d.company===c.n&&d.market)mkts.add(d.market);});
+      peopleDB.forEach(function(d){if(d.company===c.n&&d.market)mkts.add(d.market);});
+      html += '<div class="card" style="margin-bottom:7px;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="intelOpenCompanyPanel(\'' + esc(c.n) + '\')">' +
+        '<div style="font-family:monospace;font-size:11px;color:#b4b2a9;width:26px;text-align:right;">' + (c.r?'#'+c.r:'') + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(c.n) + '</div>' +
+          '<div style="font-size:11px;color:#888780;">' + c.t + ' &middot; ' + (c.pub?'Public':'Private') + (c.hq?' &middot; '+c.hq:'') + (mkts.size?' &middot; '+mkts.size+' mkts':'') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+          (intel?'<span class="sig-purple" style="font-size:10px;padding:2px 7px;border-radius:4px;">'+intel+' sig</span>':'') +
+          (people?'<span class="sig-green" style="font-size:10px;padding:2px 7px;border-radius:4px;">'+people+' ppl</span>':'') +
+          (!intel&&!people?'<span style="font-size:10px;color:#b4b2a9;">No intel</span>':'') +
+        '</div>' +
+      '</div>';
+    });
+  });
+  el.innerHTML = html || '<div style="color:#888780;font-style:italic;padding:20px 0;text-align:center;">No companies match.</div>';
+}
+
+function renderIntelMarkets() {
+  var el = document.getElementById('intel-cards'); if(!el)return;
+  var html = '';
+  Object.keys(TG_REGIONS).forEach(function(region){
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#888780;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">' + region + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:10px;">';
+    TG_REGIONS[region].forEach(function(mkt){
+      var intel = intelDB.filter(function(d){return d.market===mkt;}).length;
+      var people = peopleDB.filter(function(d){return d.market===mkt;}).length;
+      var projs = projectDB.filter(function(d){return d.market===mkt;}).length;
+      html += '<div class="card" style="cursor:pointer;" onclick="intelOpenMarketPanel(\'' + esc(mkt) + '\')">' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:5px;">' + esc(mkt) + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          (intel?'<span style="font-size:11px;color:#888780;"><strong style="color:#2c2c2a;">'+intel+'</strong> signals</span>':'') +
+          (people?'<span style="font-size:11px;color:#888780;"><strong style="color:#2c2c2a;">'+people+'</strong> people</span>':'') +
+          (projs?'<span style="font-size:11px;color:#888780;"><strong style="color:#2c2c2a;">'+projs+'</strong> projects</span>':'') +
+          (!intel&&!people&&!projs?'<span style="font-size:11px;color:#b4b2a9;">No intel yet</span>':'') +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderIntelPeople() {
+  var el = document.getElementById('intel-cards'); if(!el)return;
+  var q = ((document.getElementById('intel-search')||{value:''}).value||'').toLowerCase();
+  var fco = iVal('intel-filter-company');
+  var fmkt = iVal('intel-filter-market');
+  var ffn = iVal('intel-filter-fn');
+  var items = peopleDB.filter(function(p){
+    if(q && !(p.name+p.company+p.title+p.fn+p.market).toLowerCase().includes(q)) return false;
+    if(fco && p.company !== fco) return false;
+    if(fmkt && p.market !== fmkt) return false;
+    if(ffn && p.fn !== ffn) return false;
+    return true;
+  });
+  if(!items.length){el.innerHTML='<div style="color:#888780;font-style:italic;padding:20px 0;text-align:center;">No people logged. Add from "+ Add Person".</div>';return;}
+  var hcl = {hot:'#D85A30',warm:'#BA7517',cold:'#4A9EE8',mapped:'#888780'};
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+    '<thead><tr style="border-bottom:1px solid #e0e0d8;">' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Name</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Title / Function</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Company</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Market</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Status</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;">Next</th>' +
+    '<th></th></tr></thead><tbody>' +
+    items.map(function(p){
+      var hc = p.status&&p.status.includes('Hot')?'hot':p.status&&p.status.includes('Cold')?'cold':p.status==='Mapped (not yet contacted)'?'mapped':'warm';
+      return '<tr style="border-bottom:1px solid #e0e0d8;">' +
+        '<td style="padding:8px 10px;font-weight:500;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+hcl[hc]+';margin-right:5px;vertical-align:middle;"></span>' + esc(p.name) + '</td>' +
+        '<td style="padding:8px 10px;color:#888780;">' + esc(p.title||'') + (p.fn?'<br><span style="font-size:10px;color:#b4b2a9;">'+esc(p.fn)+'</span>':'') + '</td>' +
+        '<td style="padding:8px 10px;color:#378ADD;cursor:pointer;" onclick="intelOpenCompanyPanel(\'' + esc(p.company||'') + '\')">' + esc(p.company||'') + '</td>' +
+        '<td style="padding:8px 10px;">' + esc(p.market||'') + '</td>' +
+        '<td style="padding:8px 10px;font-size:11px;">' + esc(p.status||'') + (p.comp?'<br><span style="color:#888780;">'+esc(p.comp)+'</span>':'') + '</td>' +
+        '<td style="padding:8px 10px;font-size:11px;color:#378ADD;">' + esc(p.next||'') + '</td>' +
+        '<td style="padding:4px;"><button onclick="deletePeopleEntry(\'' + p.id + '\')" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;opacity:.5;">&#x00D7;</button></td>' +
+      '</tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function renderIntelProjects() {
+  var el = document.getElementById('intel-cards'); if(!el)return;
+  var fmkt = iVal('intel-filter-market');
+  var items = projectDB.filter(function(p){ return !fmkt || p.market === fmkt; });
+  var SC2 = {Announced:'sig-blue',Entitlement:'sig-amber','Under Development':'sig-green','Finished Lots':'sig-green',Building:'sig-purple','Sold Out':'sig-gray'};
+  if(!items.length){el.innerHTML='<div style="color:#888780;font-style:italic;padding:20px 0;text-align:center;">No projects logged yet.</div>';return;}
+  el.innerHTML = items.map(function(p){
+    return '<div class="card" style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
+        '<div><div style="font-size:14px;font-weight:600;">' + esc(p.name) + '</div>' +
+          '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
+            '<span class="' + (SC2[p.stage]||'sig-gray') + '" style="font-size:10px;padding:2px 7px;border-radius:4px;">' + esc(p.stage) + '</span>' +
+            (p.market?'<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#F1EFE8;color:#5F5E5A;">'+esc(p.market)+'</span>':'') +
+            (p.type?'<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#F1EFE8;color:#5F5E5A;">'+esc(p.type)+'</span>':'') +
+          '</div>' +
+        '</div>' +
+        '<button onclick="deleteProjectEntry(\'' + p.id + '\')" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:18px;opacity:.5;">&#x00D7;</button>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;font-size:12px;">' +
+        (p.developer?'<div><div style="font-size:10px;color:#888780;">Developer</div><strong>'+esc(p.developer)+'</strong></div>':'') +
+        (p.builder?'<div><div style="font-size:10px;color:#888780;">Anchor Builder</div><strong style="color:#378ADD;cursor:pointer;" onclick="intelOpenCompanyPanel(\''+esc(p.builder)+'\')">'+esc(p.builder)+'</strong></div>':'') +
+        (p.scale?'<div><div style="font-size:10px;color:#888780;">Scale</div><strong>'+esc(p.scale)+'</strong></div>':'') +
+        (p.hireTiming?'<div><div style="font-size:10px;color:#888780;">Est. Hire Timing</div><strong style="color:#BA7517;">'+esc(p.hireTiming)+'</strong></div>':'') +
+      '</div>' +
+      (p.orgNotes?'<div style="font-size:12px;color:#5F5E5A;background:#f9f9f7;border-radius:6px;padding:7px 10px;margin-bottom:6px;"><span style="font-size:9px;text-transform:uppercase;color:#888780;">Org / Headcount</span><br>'+esc(p.orgNotes)+'</div>':'') +
+      (p.notes?'<div style="font-size:12px;color:#5F5E5A;line-height:1.5;">'+esc(p.notes)+'</div>':'') +
+    '</div>';
+  }).join('');
+}
+
+// ---- COMPANY PANEL ----
+function intelOpenCompanyPanel(name) {
+  var co = TG_COMPANIES.find(function(c){return c.n===name;});
+  var intel = intelDB.filter(function(d){return d.company===name;});
+  var people = peopleDB.filter(function(d){return d.company===name;});
+  var projs = projectDB.filter(function(d){return d.developer===name||d.builder===name;});
+  var mkts = [];
+  var mktSet = new Set();
+  intel.forEach(function(d){if(d.market)mktSet.add(d.market);});
+  people.forEach(function(d){if(d.market)mktSet.add(d.market);});
+  mktSet.forEach(function(m){mkts.push(m);});
+
+  var cpk = 'CO::' + name;
+  var cp = divProfiles[cpk] || {};
+
+  var html = '<div style="font-size:18px;font-weight:600;margin-bottom:4px;padding-right:30px;">' + esc(name) + '</div>';
+  html += '<div style="font-size:12px;color:#888780;margin-bottom:10px;">' + (co?co.t+' &middot; '+(co.pub?'Public':'Private')+(co.r?' &middot; Builder #'+co.r:'')+(co.hq?' &middot; HQ: '+co.hq:''):'') + '</div>';
+  html += '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">' +
+    '<span class="sig-gray" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+intel.length+' signals</span>' +
+    '<span class="sig-green" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+people.length+' people</span>' +
+    '<span class="sig-blue" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+projs.length+' projects</span>' +
+    '<span class="sig-gray" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+mkts.length+' markets</span>' +
+  '</div>';
+
+  // Profile fields
+  html += '<div style="background:#f9f9f7;border-radius:8px;padding:12px;margin-bottom:14px;">';
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin-bottom:8px;">Company Profile</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">';
+  html += intelDivField(cpk,'hq','HQ / Domicile',co?co.hq||'':'');
+  html += intelDivField(cpk,'type','Business Type',co?co.t:'');
+  html += intelDivField(cpk,'pub','Public / Private',co?(co.pub?'Public':'Private'):'');
+  html += intelDivField(cpk,'b100','Builder Rank',co&&co.r?'#'+co.r:'');
+  html += intelDivField(cpk,'comm','Community Count','');
+  html += intelDivField(cpk,'region','Regional Structure','');
+  html += '</div></div>';
+
+  // Markets / divisions
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">Where They Operate ('+mkts.length+' markets)</div>';
+  if(mkts.length) {
+    mkts.forEach(function(m){
+      var key = name+'::'+m;
+      var si = intel.filter(function(d){return d.market===m;}).length;
+      var pe = people.filter(function(d){return d.market===m;}).length;
+      html += '<div style="background:#f9f9f7;border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+      html += '<span style="font-size:13px;font-weight:500;color:#378ADD;cursor:pointer;" onclick="intelOpenMarketPanel(\''+esc(m)+'\')">'+esc(m)+'</span>';
+      html += '<div style="display:flex;gap:4px;">' + (si?'<span class="sig-purple" style="font-size:10px;padding:2px 6px;border-radius:4px;">'+si+' sig</span>':'') + (pe?'<span class="sig-green" style="font-size:10px;padding:2px 6px;border-radius:4px;">'+pe+' ppl</span>':'') + '</div></div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">';
+      html += intelDivField(key,'dp','Division President','');
+      html += intelDivField(key,'prestype','Presence Type','Division');
+      html += intelDivField(key,'communities','Community Count','');
+      html += intelDivField(key,'pricerange','Price Range','');
+      html += intelDivField(key,'product','Product Type','');
+      html += intelDivField(key,'officeloc','Division Office','');
+      html += '</div>';
+      html += intelOrgChart(key);
+      html += '</div>';
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;padding:6px 0;">No market data yet. Log signals to build the footprint.</div>';
+  }
+
+  // People
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">People ('+people.length+')</div>';
+  if(people.length){
+    var byMkt = {};
+    people.forEach(function(p){var k=p.market||'National';if(!byMkt[k])byMkt[k]=[];byMkt[k].push(p);});
+    Object.keys(byMkt).forEach(function(m){
+      html += '<div style="font-size:10px;color:#b4b2a9;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 3px;">'+m+'</div>';
+      byMkt[m].forEach(function(p){
+        var hc = p.status&&p.status.includes('Hot')?'#D85A30':p.status&&p.status.includes('Cold')?'#4A9EE8':p.status==='Mapped (not yet contacted)'?'#888780':'#BA7517';
+        html += '<div style="padding:6px 0;border-bottom:1px solid #f1efe8;font-size:12px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+hc+';margin-right:5px;vertical-align:middle;"></span><strong>'+esc(p.name)+'</strong>'+(p.title?' &mdash; <span style="color:#888780;">'+esc(p.title)+'</span>':'')+'<div style="font-size:11px;color:#b4b2a9;margin-top:1px;">'+esc(p.fn||'')+(p.comp?' &middot; '+esc(p.comp):'')+'</div></div>';
+      });
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;">No people logged.</div>';
+  }
+
+  // Signals
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">Recent Signals ('+intel.length+')</div>';
+  if(intel.length){
+    intel.slice(0,8).forEach(function(d){
+      html += '<div style="padding:7px 0;border-bottom:1px solid #f1efe8;">';
+      html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;"><strong style="font-size:12px;">'+esc(d.signal||'Signal')+'</strong>';
+      if(d.market) html += '<span style="font-size:10px;background:#F1EFE8;color:#5F5E5A;padding:1px 6px;border-radius:4px;">'+esc(d.market)+'</span>';
+      html += '<span style="font-size:10px;color:#b4b2a9;">'+d.date+'</span></div>';
+      html += '<div style="font-size:11px;color:#888780;">'+esc((d.notes||'').slice(0,130))+'</div>';
+      if(d.next) html += '<div style="font-size:10px;color:#378ADD;">&rarr; '+esc(d.next)+'</div>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;">No signals yet.</div>';
+  }
+
+  intelOpenPanel(html);
+}
+
+// ---- MARKET PANEL ----
+function intelOpenMarketPanel(mkt) {
+  var intel = intelDB.filter(function(d){return d.market===mkt;});
+  var people = peopleDB.filter(function(d){return d.market===mkt;});
+  var projs = projectDB.filter(function(d){return d.market===mkt;});
+  var region = '';
+  Object.keys(TG_REGIONS).forEach(function(r){if(TG_REGIONS[r].indexOf(mkt)>-1)region=r;});
+
+  var html = '<div style="font-size:18px;font-weight:600;margin-bottom:4px;padding-right:30px;">' + esc(mkt) + '</div>';
+  html += '<div style="font-size:12px;color:#888780;margin-bottom:12px;">' + region + '</div>';
+  html += '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">' +
+    '<span class="sig-gray" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+intel.length+' signals</span>' +
+    '<span class="sig-green" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+people.length+' people</span>' +
+    '<span class="sig-blue" style="font-size:10px;padding:2px 8px;border-radius:4px;">'+projs.length+' projects</span>' +
+  '</div>';
+
+  // Companies active in this market
+  var coSet = new Set();
+  intel.forEach(function(d){if(d.company)coSet.add(d.company);});
+  people.forEach(function(d){if(d.company)coSet.add(d.company);});
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">Companies Active Here</div>';
+  if(coSet.size){
+    coSet.forEach(function(cn){
+      var co = TG_COMPANIES.find(function(c){return c.n===cn;});
+      var si = intel.filter(function(d){return d.company===cn;}).length;
+      var pe = people.filter(function(d){return d.company===cn;}).length;
+      html += '<div style="padding:6px 0;border-bottom:1px solid #f1efe8;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:12px;font-weight:500;color:#378ADD;cursor:pointer;" onclick="intelOpenCompanyPanel(\''+esc(cn)+'\')">'+esc(cn)+'</span>' +
+        '<div style="display:flex;gap:4px;">' +
+          (co?'<span style="font-size:10px;background:#F1EFE8;color:#5F5E5A;padding:1px 6px;border-radius:4px;">'+esc(co.t)+'</span>':'') +
+          (si?'<span class="sig-purple" style="font-size:10px;padding:1px 6px;border-radius:4px;">'+si+' sig</span>':'') +
+          (pe?'<span class="sig-green" style="font-size:10px;padding:1px 6px;border-radius:4px;">'+pe+' ppl</span>':'') +
+        '</div></div>';
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;">No companies logged for this market yet.</div>';
+  }
+
+  // Projects
+  if(projs.length){
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">Projects</div>';
+    projs.forEach(function(p){
+      html += '<div style="padding:7px 0;border-bottom:1px solid #f1efe8;display:flex;justify-content:space-between;">' +
+        '<div><strong style="font-size:12px;">'+esc(p.name)+'</strong><div style="font-size:11px;color:#888780;">'+esc(p.developer||'')+(p.builder?' &rarr; '+esc(p.builder):'')+'</div></div>' +
+        '<span class="sig-blue" style="font-size:10px;padding:2px 6px;border-radius:4px;height:fit-content;">'+esc(p.stage)+'</span>' +
+      '</div>';
+    });
+  }
+
+  // People
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">People Here</div>';
+  if(people.length){
+    people.forEach(function(p){
+      var hc = p.status&&p.status.includes('Hot')?'#D85A30':p.status&&p.status.includes('Cold')?'#4A9EE8':p.status==='Mapped (not yet contacted)'?'#888780':'#BA7517';
+      html += '<div style="padding:6px 0;border-bottom:1px solid #f1efe8;font-size:12px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+hc+';margin-right:5px;vertical-align:middle;"></span><strong>'+esc(p.name)+'</strong>'+(p.title?' &mdash; <span style="color:#888780;">'+esc(p.title)+'</span>':'')+'<div style="font-size:11px;color:#b4b2a9;">'+esc(p.company||'')+(p.fn?' &middot; '+esc(p.fn):'')+'</div></div>';
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;">No people logged for this market yet.</div>';
+  }
+
+  // Signals
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e0e0d8;">Signals ('+intel.length+')</div>';
+  if(intel.length){
+    intel.slice(0,8).forEach(function(d){
+      html += '<div style="padding:7px 0;border-bottom:1px solid #f1efe8;">';
+      html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;"><strong style="font-size:12px;">'+esc(d.signal||'Signal')+'</strong>';
+      if(d.company) html += '<span style="font-size:10px;color:#378ADD;cursor:pointer;" onclick="intelOpenCompanyPanel(\''+esc(d.company)+'\')">'+esc(d.company)+'</span>';
+      html += '<span style="font-size:10px;color:#b4b2a9;">'+d.date+'</span></div>';
+      html += '<div style="font-size:11px;color:#888780;">'+esc((d.notes||'').slice(0,130))+'</div>';
+      if(d.next) html += '<div style="font-size:10px;color:#378ADD;">&rarr; '+esc(d.next)+'</div>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div style="color:#888780;font-style:italic;font-size:12px;">No signals logged for this market yet.</div>';
+  }
+
+  intelOpenPanel(html);
+}
+
+// ---- DIV PROFILE FIELDS ----
+function intelDivField(key,field,label,def){
+  if(!divProfiles[key])divProfiles[key]={};
+  var val = divProfiles[key][field] !== undefined ? divProfiles[key][field] : (def||'');
+  return '<div style="background:white;border-radius:5px;padding:6px 8px;border:1px solid #e0e0d8;">' +
+    '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#b4b2a9;margin-bottom:2px;">'+label+'</div>' +
+    '<input type="text" value="'+esc(val)+'" placeholder="--" style="background:none;border:none;font-size:12px;font-family:inherit;color:#2c2c2a;outline:none;width:100%;padding:0;" onchange="intelSaveDivField(\''+esc(key)+'\',\''+field+'\',this.value)">' +
+  '</div>';
+}
+function intelSaveDivField(key,field,val){
+  if(!divProfiles[key])divProfiles[key]={};
+  divProfiles[key][field]=val;
+  intelSave();
+}
+
+// ---- ORG CHART ----
+function intelOrgChart(key){
+  var orgKey = key+'::org';
+  var html = '<div style="margin-top:10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#888780;margin-bottom:5px;">Org Chart</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+  html += '<tr><th style="text-align:left;padding:4px 6px;font-size:9px;font-weight:600;text-transform:uppercase;color:#b4b2a9;border-bottom:1px solid #e0e0d8;">Role</th><th style="padding:4px 6px;border-bottom:1px solid #e0e0d8;">Name</th><th style="padding:4px 6px;border-bottom:1px solid #e0e0d8;">Status</th></tr>';
+  TG_ORG_ROLES.forEach(function(g){
+    g.roles.forEach(function(role){
+      var fk = orgKey+'::'+role.replace(/[^a-zA-Z0-9]/g,'_');
+      var fd = divProfiles[fk]||{};
+      html += '<tr>';
+      html += '<td style="padding:5px 6px;color:#888780;border-bottom:1px solid #f1efe8;white-space:nowrap;">'+esc(role)+'</td>';
+      html += '<td style="padding:5px 6px;border-bottom:1px solid #f1efe8;"><input type="text" value="'+esc(fd.name||'')+'" placeholder="-- add name" style="background:none;border:none;font-size:11px;font-family:inherit;color:#2c2c2a;outline:none;width:100%;min-width:100px;" onchange="intelSaveDivField(\''+esc(fk)+'\',\'name\',this.value)"></td>';
+      html += '<td style="padding:5px 6px;border-bottom:1px solid #f1efe8;"><select onchange="intelSaveDivField(\''+esc(fk)+'\',\'status\',this.value)" style="font-size:10px;padding:2px 4px;border:1px solid #e0e0d8;border-radius:4px;background:white;color:#888780;font-family:inherit;">';
+      ['Unknown','Mapped','Known -- Warm','Known -- Hot','Known -- Cold'].forEach(function(s){
+        html += '<option'+(fd.status===s?' selected':'')+'>'+s+'</option>';
+      });
+      html += '</select></td></tr>';
+    });
+  });
+  html += '</table></div>';
+  return html;
+}
+
+// ---- PANEL ----
+function intelOpenPanel(html){
+  var panel = document.getElementById('intel-side-panel');
+  var pbg = document.getElementById('intel-panel-bg');
+  if(!panel){
+    // Create panel if it doesn't exist
+    var bg = document.createElement('div');
+    bg.id = 'intel-panel-bg';
+    bg.style.cssText = 'display:none;position:fixed;inset:0;z-index:150;background:transparent;';
+    bg.onclick = function(){ intelClosePanel(); };
+    document.body.appendChild(bg);
+    panel = document.createElement('div');
+    panel.id = 'intel-side-panel';
+    panel.style.cssText = 'position:fixed;right:0;top:0;bottom:0;width:520px;max-width:96vw;background:white;border-left:1px solid #e0e0d8;z-index:151;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:20px 22px;box-shadow:-4px 0 20px rgba(0,0,0,.08);';
+    document.body.appendChild(panel);
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:#888780;z-index:1;';
+    closeBtn.onclick = function(){ intelClosePanel(); };
+    panel.appendChild(closeBtn);
+  }
+  document.getElementById('intel-panel-bg').style.display = 'block';
+  var contentDiv = document.createElement('div');
+  contentDiv.innerHTML = html;
+  // Clear old content (keep close button)
+  while(panel.children.length > 1) panel.removeChild(panel.lastChild);
+  panel.appendChild(contentDiv);
+  panel.style.transform = 'translateX(0)';
+}
+function intelClosePanel(){
+  var panel = document.getElementById('intel-side-panel');
+  var bg = document.getElementById('intel-panel-bg');
+  if(panel) panel.style.transform = 'translateX(100%)';
+  if(bg) bg.style.display = 'none';
+}
+
+// ---- STATS ----
+function renderIntelStats(){
+  var el = document.getElementById('intel-count-label');
+  if(el) el.textContent = intelDB.length+' signals &middot; '+peopleDB.length+' people &middot; '+projectDB.length+' projects &middot; '+Object.keys(divProfiles).length+' org fields';
+}
+
+// ---- DELETE ----
+function deleteIntelEntry(idx){ if(!confirm('Delete this entry?'))return; intelDB.splice(idx,1); intelSave(); renderIntel(); renderIntelStats(); }
+function deletePeopleEntry(id){ if(!confirm('Delete?'))return; peopleDB=peopleDB.filter(function(p){return p.id!==id;}); intelSave(); renderIntelPeople(); renderIntelStats(); }
+function deleteProjectEntry(id){ if(!confirm('Delete?'))return; projectDB=projectDB.filter(function(p){return p.id!==id;}); intelSave(); renderIntelProjects(); renderIntelStats(); }
+
+// ---- FILTER HELPERS ----
+function intelFilterByCo(c){ var e=document.getElementById('intel-filter-company'); if(e)e.value=c; renderIntel(); }
+function intelFilterByMkt(m){ var e=document.getElementById('intel-filter-market'); if(e)e.value=m; renderIntel(); }
+function clearIntelFilters(){ ['intel-search','intel-filter-btype','intel-filter-signal','intel-filter-company','intel-filter-market','intel-filter-fn','intel-filter-heat'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';}); renderIntel(); }
+
+// ---- EXPORT / IMPORT ----
+function exportIntelJSON(){
+  var data = JSON.stringify({intel:intelDB,projects:projectDB,people:peopleDB,divProfiles:divProfiles},null,2);
+  var a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
+  a.download='TG_Intel_Backup_'+new Date().toLocaleDateString().replace(/\//g,'-')+'.json';a.click();
+}
+function importIntelJSON(){ document.getElementById('intel-import-file').click(); }
+function handleIntelImport(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var imported=JSON.parse(e.target.result);
+      if(imported.intel){intelDB=imported.intel;projectDB=imported.projects||[];peopleDB=imported.people||[];divProfiles=imported.divProfiles||{};}
+      else if(Array.isArray(imported)){intelDB=imported;}
+      intelSave();renderIntel();renderIntelStats();alert('Import complete.');
+    }catch(e){alert('Could not read file.');}
+  };reader.readAsText(file);
+}
+
+
+function switchIntelView(view) {
+  var sel = document.getElementById('intel-view-sel');
+  if(sel) sel.value = view;
+  // Update view buttons
+  var btns = document.querySelectorAll('[onclick^="switchIntelView"]');
+  btns.forEach(function(b){
+    b.style.background = b.getAttribute('onclick').includes("'"+view+"'") ? 'white' : 'transparent';
+    b.style.border = b.getAttribute('onclick').includes("'"+view+"'") ? '1px solid #e0e0d8' : 'none';
+  });
+  renderIntel();
+}
+
 </script>
-<!-- INTELLIGENCE MODAL -->
-<div class="modal" id="intel-modal">
-  <div class="modal-box">
-    <div class="modal-title">Add Intelligence</div>
-    <div class="modal-field">
-      <div class="field-label">Category</div>
-      <select id="intel-cat" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;">
-        <option value="company">Company Signal — hiring posture, org changes, expansion</option>
-        <option value="talent">Talent Movement — who's restless, who just moved</option>
-        <option value="market">Market Signal — metros heating/cooling, builder moves</option>
-        <option value="comp">Comp Data — what people make, what clients pay</option>
-        <option value="relationship">Relationship Path — who knows who, warm paths in</option>
-        <option value="timing">Timing Flag — not ready now, but will be in 30-90 days</option>
-      </select>
-    </div>
-    <div class="modal-field"><div class="field-label">Company / Person</div><input type="text" id="intel-entity" placeholder="Who or what is this about" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;"></div>
-    <div class="modal-field"><div class="field-label">Intel</div><textarea id="intel-note" class="notes-area" style="min-height:80px;" placeholder="What did you hear or learn..."></textarea></div>
-    <div class="modal-field"><div class="field-label">Act on by (for timing flags)</div><input type="date" id="intel-actdate" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:6px;font-size:13px;font-family:Arial;"></div>
-    <div class="btn-row">
-      <button class="btn btn-green" onclick="saveIntelModal()">Save Intel</button>
-      <button class="btn btn-gray" onclick="document.getElementById('intel-modal').classList.remove('open')">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- INTELLIGENCE TAB V4 -->
+<!-- INTELLIGENCE TAB V5 — ANCHOR-FIRST -->
 <div id="tab-intel" class="tab-pane">
 <div class="page">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
@@ -2388,62 +3142,67 @@ buildWGT();
       <div style="font-size:16px;font-weight:bold;">Market Intelligence</div>
       <div id="intel-count-label" style="font-size:11px;color:#888780;margin-top:2px;">Loading...</div>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn" style="background:#1D9E75;color:white;font-size:12px;" onclick="openIntelModal('people')">+ Add Person</button>
-      <button class="btn" style="background:#378ADD;color:white;font-size:12px;" onclick="openIntelModal('signal')">+ Add Signal</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" style="background:#1D9E75;color:white;font-size:12px;" onclick="openIntelModal('signal')">+ Signal</button>
+      <button class="btn" style="background:#378ADD;color:white;font-size:12px;" onclick="openIntelModal('people')">+ Person</button>
+      <button class="btn" style="background:#7F77DD;color:white;font-size:12px;" onclick="openIntelModal('project')">+ Project</button>
     </div>
   </div>
 
+  <!-- VIEW SWITCHER -->
+  <div style="display:flex;gap:4px;margin-bottom:12px;background:#f1efe8;border-radius:8px;padding:3px;width:fit-content;">
+    <button class="btn" style="font-size:11px;background:white;border:1px solid #e0e0d8;padding:5px 12px;" onclick="switchIntelView('feed')">Feed</button>
+    <button class="btn" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchIntelView('companies')">Companies</button>
+    <button class="btn" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchIntelView('markets')">Markets</button>
+    <button class="btn" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchIntelView('people')">People</button>
+    <button class="btn" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchIntelView('projects')">Projects</button>
+    <select id="intel-view-sel" style="display:none;"></select>
+  </div>
+
   <!-- FILTERS -->
-  <div class="card" style="margin-bottom:14px;">
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-      <input type="text" id="intel-search" placeholder="Search name, company, market, keyword..." oninput="renderIntel()" style="font-size:13px;padding:8px 10px;">
-      <select id="intel-filter-type" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
-        <option value="">All types</option>
-        <option>Candidate</option><option>Client</option><option>Contact</option><option>Signal</option><option>Research</option>
+  <div class="card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input type="text" id="intel-search" placeholder="Search company, market, person, signal..." oninput="renderIntel()" style="font-size:13px;padding:8px 10px;">
+      <select id="intel-filter-btype" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
+        <option value="">All business types</option>
+        <option>Homebuilder</option><option>REIT / SFR</option><option>Land Banker</option>
+        <option>Developer</option><option>DC Owner / Hyperscaler</option>
+        <option>DC Colo / Developer</option><option>DC GC / Construction</option>
+        <option>DC Commissioning</option><option>DC Subcontractor</option>
+        <option>Commercial / Industrial</option><option>Bank / Lender</option>
       </select>
-      <select id="intel-filter-company" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
-        <option value="">All companies</option>
-        <option>Meritage Homes</option><option>Pulte Group</option><option>David Weekley Homes</option>
-        <option>Taylor Morrison</option><option>Tri Pointe</option><option>D.R. Horton</option>
-        <option>Lennar</option><option>KB Home</option><option>Toll Brothers</option>
-        <option>Mattamy Homes</option><option>Perry Homes</option><option>Ashton Woods</option>
-        <option>Stanley Martin Homes</option><option>LGI Homes</option><option>Brookfield Residential</option>
-        <option>Centra Homes</option><option>Beazer Homes</option><option>NVR</option>
-      </select>
-      <select id="intel-filter-market" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
-        <option value="">All markets</option>
-        <optgroup label="Southwest"><option>Phoenix, AZ</option><option>Tucson, AZ</option><option>Las Vegas, NV</option></optgroup>
-        <optgroup label="Texas"><option>Houston, TX</option><option>Dallas, TX</option><option>Austin, TX</option><option>San Antonio, TX</option></optgroup>
-        <optgroup label="Southeast"><option>Atlanta, GA</option><option>Charlotte, NC</option><option>Raleigh, NC</option><option>Nashville, TN</option><option>Orlando, FL</option><option>Tampa, FL</option></optgroup>
-        <optgroup label="Mountain"><option>Denver, CO</option><option>Salt Lake City, UT</option><option>Boise, ID</option></optgroup>
-        <optgroup label="Midwest"><option>Minneapolis, MN</option><option>Chicago, IL</option><option>Indianapolis, IN</option><option>Kansas City, MO</option></optgroup>
-        <optgroup label="National"><option>National</option></optgroup>
-      </select>
+      <select id="intel-filter-company" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;"><option value="">All companies</option></select>
+      <select id="intel-filter-market" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;"><option value="">All markets</option></select>
       <select id="intel-filter-fn" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
         <option value="">All functions</option>
-        <option>Land</option><option>Entitlement</option><option>Development</option>
-        <option>Finance</option><option>Accounting</option><option>Purchasing</option><option>Supply Chain</option>
-        <option>Sales Leadership</option><option>Sales Counselor</option>
-        <option>Operations</option><option>Division President</option><option>HR / Admin</option><option>Construction</option>
-      </select>
-      <select id="intel-filter-signal" onchange="renderIntel()" style="font-size:12px;padding:7px 10px;">
-        <option value="">All signals</option>
-        <option>Org Change</option><option>Leadership Move</option><option>Expansion</option>
-        <option>Contraction</option><option>Compensation</option><option>Timing Flag</option>
-        <option>BD Signal</option><option>Market Intel</option><option>Research</option>
+        <optgroup label="Homebuilding">
+          <option>Land Acquisition</option><option>Land Development</option><option>Entitlement</option>
+          <option>Finance</option><option>Purchasing</option><option>Sales Leadership</option>
+          <option>Sales Counselor</option><option>Operations</option><option>Division President</option>
+          <option>Construction</option><option>HR / Admin</option>
+        </optgroup>
+        <optgroup label="Data Center">
+          <option>DC Project Manager</option><option>DC Superintendent</option>
+          <option>DC Commissioning Engineer</option><option>DC Commissioning Manager</option>
+          <option>DC Startup Technician</option><option>DC MEP / Controls</option>
+          <option>DC Power / Utilities</option><option>DC Development Manager</option>
+          <option>DC Site Selection / Land</option><option>DC Estimator / Precon</option>
+          <option>DC QA/QC Manager</option><option>DC Operations / Facilities</option>
+        </optgroup>
       </select>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <select id="intel-filter-heat" onchange="renderIntel()" style="font-size:12px;padding:6px 10px;width:130px;">
+      <select id="intel-filter-signal" onchange="renderIntel()" style="font-size:12px;padding:6px 10px;">
+        <option value="">All signal types</option>
+        <option>Hiring</option><option>Job Posting</option><option>Layoff</option>
+        <option>Org Change</option><option>Leadership Move</option><option>Project Announced</option>
+        <option>Land Acquisition</option><option>Market Expansion</option><option>M&amp;A</option>
+        <option>Earnings / Financial</option><option>BD Signal</option><option>Timing Flag</option>
+        <option>Comp Data</option><option>Article / News</option>
+      </select>
+      <select id="intel-filter-heat" onchange="renderIntel()" style="font-size:12px;padding:6px 10px;">
         <option value="">All heat</option>
         <option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option>
-      </select>
-      <select id="intel-filter-date" onchange="renderIntel()" style="font-size:12px;padding:6px 10px;width:160px;">
-        <option value="">All time</option>
-        <option value="30">Last 30 days</option><option value="60">Last 60 days</option>
-        <option value="90">Last 90 days</option><option value="180">Last 6 months</option>
-        <option value="365">Last year</option>
       </select>
       <button class="btn btn-gray" style="font-size:11px;" onclick="clearIntelFilters()">Clear</button>
       <span id="intel-sync-label" style="font-size:11px;color:#888780;margin-left:auto;"></span>
@@ -2451,18 +3210,133 @@ buildWGT();
   </div>
 
   <!-- PASTE BLOCK -->
-  <div class="card" style="margin-bottom:14px;border-left:3px solid #1D9E75;">
-    <div class="card-title" style="color:#1D9E75;">Paste Intelligence Block from Claude</div>
-    <p style="font-size:12px;color:#888780;margin-bottom:8px;">At EOD paste the Intelligence block Claude gives you here. Click Save — everything files instantly to OneDrive.</p>
-    <textarea id="intel-paste-block" class="notes-area" style="min-height:80px;" placeholder="Paste Claude Intelligence block here..."></textarea>
+  <div class="card" style="margin-bottom:12px;border-left:3px solid #1D9E75;padding:12px;">
+    <div class="card-title" style="color:#1D9E75;margin-bottom:5px;">Paste Intelligence Block from Claude</div>
+    <p style="font-size:12px;color:#888780;margin-bottom:8px;">At EOD paste the Intelligence block Claude gives you here. Saves instantly to OneDrive.</p>
+    <textarea id="intel-paste-block" class="notes-area" style="min-height:70px;" placeholder="Paste Claude Intelligence block here..."></textarea>
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-green" onclick="saveIntelBlock()">Save to Intelligence</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="exportIntelJSON()">Export Backup</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="importIntelJSON()">Import JSON</button>
+      <input type="file" id="intel-import-file" accept=".json" style="display:none;" onchange="handleIntelImport(this)">
       <span id="intel-block-status" style="font-size:11px;color:#1D9E75;display:none;margin-left:8px;">Saved!</span>
     </div>
   </div>
 
-  <!-- CARDS -->
+  <!-- CARDS AREA -->
   <div id="intel-cards" style="min-height:60px;"></div>
+</div>
+</div>
+
+<!-- INTEL MODAL -->
+<div id="intel-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding-top:4vh;overflow-y:auto;">
+<div style="background:white;border-radius:12px;padding:22px;width:640px;max-width:96vw;margin-bottom:20px;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+  <div style="display:flex;gap:4px;margin-bottom:14px;background:#f1efe8;border-radius:8px;padding:3px;">
+    <button id="imt-signal" class="btn" style="flex:1;font-size:11px;background:#1D9E75;color:white;padding:6px;" onclick="switchIntelModalMode('signal')">Signal / Intel</button>
+    <button id="imt-people" class="btn" style="flex:1;font-size:11px;background:#e8e6e0;color:#2c2c2a;padding:6px;" onclick="switchIntelModalMode('people')">Person</button>
+    <button id="imt-project" class="btn" style="flex:1;font-size:11px;background:#e8e6e0;color:#2c2c2a;padding:6px;" onclick="switchIntelModalMode('project')">Project</button>
+  </div>
+
+  <!-- SIGNAL FORM -->
+  <div id="intel-modal-signal">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Signal Type *</label>
+        <select id="il-sig" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option value="">-- select</option>
+          <option>Hiring</option><option>Job Posting</option><option>Layoff</option><option>Org Change</option>
+          <option>Leadership Move</option><option>Project Announced</option><option>Land Acquisition</option>
+          <option>Market Expansion</option><option>M&amp;A</option><option>Earnings / Financial</option>
+          <option>BD Signal</option><option>Timing Flag</option><option>Comp Data</option><option>Article / News</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Company</label><select id="il-co" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Market</label><select id="il-mkt" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Business Type</label>
+        <select id="il-bt" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option value="">--</option><option>Homebuilder</option><option>REIT / SFR</option><option>Land Banker</option>
+          <option>Developer</option><option>DC Owner / Hyperscaler</option><option>DC Colo / Developer</option>
+          <option>DC GC / Construction</option><option>DC Commissioning</option><option>DC Subcontractor</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Function</label>
+        <select id="il-fn" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option value="">--</option><option>Land Acquisition</option><option>Land Development</option><option>Entitlement</option>
+          <option>Finance</option><option>Purchasing</option><option>Division President</option><option>Construction</option>
+          <option>DC Project Manager</option><option>DC Superintendent</option><option>DC Commissioning Engineer</option>
+          <option>DC Commissioning Manager</option><option>DC Power / Utilities</option><option>DC Development Manager</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Heat</label>
+        <select id="il-heat" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option value="warm">Warm</option><option value="hot">Hot</option><option value="cold">Cold</option>
+        </select></div>
+    </div>
+    <div style="margin-top:10px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Intel / Notes *</label>
+      <textarea id="il-notes" class="notes-area" style="min-height:80px;" placeholder="What did you hear, read, or learn? Be specific..."></textarea></div>
+    <div style="margin-top:8px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Next Action</label>
+      <input type="text" id="il-next" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="e.g. Call VP Land at Pulte before June"></div>
+    <div style="margin-top:8px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Source</label>
+      <select id="il-source" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+        <option>Direct</option><option>Confirmed</option><option>Rumor</option><option>Article / Press Release</option><option>Earnings Call</option><option>Conference</option>
+      </select></div>
+  </div>
+
+  <!-- PERSON FORM -->
+  <div id="intel-modal-person" style="display:none;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Name *</label><input type="text" id="ip-name" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="Full name"></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Title</label><input type="text" id="ip-title" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="Job title"></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Company</label><select id="ip-co" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Market / Division</label><select id="ip-mkt" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Function</label>
+        <select id="ip-fn" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option value="">--</option><option>Land Acquisition</option><option>Land Development</option><option>Entitlement</option>
+          <option>Finance</option><option>Purchasing</option><option>Division President</option><option>Construction</option>
+          <option>Sales Leadership</option><option>Sales Counselor</option><option>HR / Admin</option>
+          <option>DC Project Manager</option><option>DC Superintendent</option><option>DC Commissioning Engineer</option>
+          <option>DC Commissioning Manager</option><option>DC Power / Utilities</option><option>DC Development Manager</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Status</label>
+        <select id="ip-status" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option>Known -- Warm</option><option>Known -- Hot</option><option>Known -- Cold</option>
+          <option>Mapped (not yet contacted)</option><option>Candidate</option><option>Client / HM</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Comp</label><input type="text" id="ip-comp" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="e.g. $185k + 20% bonus"></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Reports To</label><input type="text" id="ip-reports" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="Manager name / title"></div>
+    </div>
+    <div style="margin-top:10px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Notes</label>
+      <textarea id="ip-notes" class="notes-area" style="min-height:70px;" placeholder="What do you know? Tenure, motivations, projects..."></textarea></div>
+    <div style="margin-top:8px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Next Action</label>
+      <input type="text" id="ip-next" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="e.g. Call in 60 days"></div>
+  </div>
+
+  <!-- PROJECT FORM -->
+  <div id="intel-modal-project" style="display:none;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Project Name *</label><input type="text" id="ipr-name" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="Project / community name"></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Developer</label><select id="ipr-dev" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Anchor Builder / GC</label><select id="ipr-bldr" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Market</label><select id="ipr-mkt" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;"></select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Project Type</label>
+        <select id="ipr-type" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option>Master Plan</option><option>Subdivision</option><option>Infill</option>
+          <option>Mixed-Use</option><option>Data Center</option><option>Industrial</option><option>Commercial</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Stage</label>
+        <select id="ipr-stage" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;">
+          <option>Announced</option><option>Entitlement</option><option>Under Development</option>
+          <option>Finished Lots</option><option>Building</option><option>Sold Out</option>
+        </select></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Scale</label><input type="text" id="ipr-scale" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="e.g. 1,200 lots / 280MW / 157 acres"></div>
+      <div><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Est. Hire Timing</label><input type="text" id="ipr-hire" style="width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;" placeholder="e.g. 60-90 days, Q3 2026"></div>
+    </div>
+    <div style="margin-top:10px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Org / Headcount Notes</label>
+      <textarea id="ipr-org" class="notes-area" style="min-height:60px;" placeholder="Who is working this? What are the gaps?"></textarea></div>
+    <div style="margin-top:8px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Intel / Notes</label>
+      <textarea id="ipr-notes" class="notes-area" style="min-height:60px;" placeholder="What you know about this project..."></textarea></div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-green" onclick="saveIntelEntry()">Save</button>
+    <button class="btn btn-gray" onclick="closeIntelModal()">Cancel</button>
+  </div>
 </div>
 </div>
 
