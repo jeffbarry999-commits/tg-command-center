@@ -1914,50 +1914,49 @@ function loadDeskState() {
 }
 
 function loadDefaultDeskState() {
-  // PULTE TUCSON
-  addReqBlock({
-    "req-title": "Director of Planning and Entitlements",
-    "req-client": "Pulte Group",
-    "req-hm": "Todd Knape | VP Land AZ",
-    candidates: [
-      {"cand-name":"Bill Dycus","cand-stage":"Client Interviewing","cand-touch":"4/10","cand-next":"Phoenix team visit Monday — final step"},
-      {"cand-name":"Andie Hemmah","cand-stage":"Submitted","cand-touch":"4/10","cand-next":"Await Todd/John decision"},
-      {"cand-name":"Cano Ornelas","cand-stage":"Contacting","cand-touch":"4/15","cand-next":"Call today — Todd has info, flag other candidates"}
-    ]
-  });
-  // WEEKLEY NATIONAL SC DIR
+  // WEEKLEY NATIONAL SC DIR — May 5 data
   addReqBlock({
     "req-title": "National Supply Chain Director",
     "req-client": "David Weekley Homes",
-    "req-hm": "John Schiegg | VP Procurement",
+    "req-hm": "John Schiegg",
     candidates: [
-      {"cand-name":"Reid Haynie","cand-stage":"Client Interviewing","cand-touch":"4/15","cand-next":"Await Houston visit coordination"},
-      {"cand-name":"Jeff Van Sant","cand-stage":"Client Interviewing","cand-touch":"4/15","cand-next":"Email John re next steps — OVERDUE"},
-      {"cand-name":"Andrew Foote","cand-stage":"Client Interviewing","cand-touch":"4/15","cand-next":"Await John — Abigail coordinating"},
-      {"cand-name":"Megan Nelson","cand-stage":"Submitted","cand-touch":"4/15","cand-next":"Await John response — do not reach out"},
-      {"cand-name":"Joe Holschbach","cand-stage":"Contacting","cand-touch":"","cand-next":"Confirm DWH comp ceiling then call"}
+      {"cand-name":"Jeff Van Sant","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Await John confirmation on Houston visit and case study coordination. Follow up with Jeff once confirmed."},
+      {"cand-name":"Reid Haynie","cand-stage":"On Hold","cand-touch":"5/1","cand-next":"Talk to John before any outreach. Reid may be being exited."},
+      {"cand-name":"Stephen Applewhite","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Follow up in 5 days if no response. Confirm Weekley national group outreach per Chad Durham."},
+      {"cand-name":"Andrew Foote","cand-stage":"Contacting","cand-touch":"4/29","cand-next":"Monitor outside interview. Light touch check in next week."},
+      {"cand-name":"Mike Demboski","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Get resume. Review and submit to John if strong."}
+    ]
+  });
+  // WEEKLEY CHARLESTON PURCHASING AGENT
+  addReqBlock({
+    "req-title": "Purchasing Agent — Charleston",
+    "req-client": "David Weekley Homes",
+    "req-hm": "TBD (likely Bryan Booth DP or PM)",
+    candidates: [
+      {"cand-name":"Inbound from Crislyn Coan (TA). Outside scope of Supply Chain engagement — contingent opportunity.","cand-stage":"Contacting","cand-touch":"","cand-next":"Get JD from Crislyn. Confirm HM. Clarify fee/process."}
     ]
   });
   // TOP 5 LEADS
   [
-    {"tl-lead":"Weekley BTR — Dir of Supply Chain","tl-status":"Warm — keep touching","tl-next":"Stephen Applewhite proactive sub in process"},
-    {"tl-lead":"David Weekley Florida — Purchasing Dir","tl-status":"Warm — keep touching","tl-next":"Working through John — Mike Lewis floated"},
-    {"tl-lead":"David Weekley — Category Manager","tl-status":"Cold — plant seed","tl-next":"Build case post National SC Dir close"},
-    {"tl-lead":"Forestar — Regional President AZ","tl-status":"Hot — req likely","tl-next":"Intro meeting with Jeff Pape — follow up next week"},
-    {"tl-lead":"Weekley SLC — Operational Purchasing","tl-status":"Warm — keep touching","tl-next":"Let John make intro — do not push"}
+    {"tl-lead":"Forestar — Phoenix Region VP","tl-status":"Hot — req likely","tl-next":"Kelly Foster call — prep and execute. Jeff Pape interim covering Phoenix. 3 internal candidates plus local known commodity."},
+    {"tl-lead":"Pulte LAM — Ryan Cole","tl-status":"Hot — req likely","tl-next":"Await response to email sent 5/1. Follow up in 10 days if nothing."},
+    {"tl-lead":"Faircroft — Purchasing Backfill","tl-status":"Hot — req likely","tl-next":"Follow up with Gareth Bracken. William Oertl left for Century Homes VP role — purchasing vacancy confirmed via Andrew Foote."},
+    {"tl-lead":"Ashton Woods — LD","tl-status":"Hot — req likely","tl-next":"Find Jeremy Ramsdell contact info or reach Scott Moore DP directly."},
+    {"tl-lead":"ICI Homes — Daytona Land","tl-status":"Hot — req likely","tl-next":"Follow up with Ryan Khan. Clarify Florida land scope."}
   ].forEach(function(d){ addTopLeadRow(d); });
-  // HOT CANDIDATES
-  [
-    {"hc-name":"Michael Bretches","hc-role":"CM or Director / 165-185K","hc-location":"Texas / Mobile","hc-pitch":"Houston builders only — not DWH"},
-    {"hc-name":"Stephen Applewhite","hc-role":"Supply Chain / Purchasing","hc-location":"","hc-pitch":"Weekley BTR sub + DWH CM possibility"}
-  ].forEach(function(d){ addHotCandidateRow(d); });
+  // HOT CANDIDATES — blank per May 5 data
+  addHotCandidateRow({});
   // RULES
   [
-    {text:"One ask at a time with John Schiegg — never bundle"},
-    {text:"Do not market Weekley candidates to other builders while search is active"},
-    {text:"Never name a passive candidate without permission"},
-    {text:"Lead with candidate access — never lead with the engaged search pitch cold"},
-    {text:"No new verticals until homebuilding hits $250K"}
+    {text:"No new verticals until homebuilding hits $250K"},
+    {text:"3 activation contacts every day — email, call, or LinkedIn — non-negotiable"},
+    {text:"One signed engagement per month — if pipeline is thin everything stops until fixed"},
+    {text:"Selective contingent from trusted relationships is not a concession — it is a Trojan horse"},
+    {text:"Lead every BD call with a candidate or intelligence — never lead with the engaged search pitch cold"},
+    {text:"Signed Engagements: 1 of 12"},
+    {text:"Placements: 0 of 6"},
+    {text:"Revenue YTD: $16,750"},
+    {text:"Pace needed: ~$35K/month | 8 months remaining"}
   ].forEach(function(d){ addRuleRow(d); });
   saveDeskState();
 }
@@ -3746,15 +3745,10 @@ async function saveDeskToOneDrive(deskObj) {
   var token = await getMSToken();
   if (!token) return;
   try {
-    // Save the same JSON structure that saveDeskState uses locally
-    var raw = localStorage.getItem('tg_desk');
-    if (!raw) return;
-    var ts = localStorage.getItem('tg_desk_updated') || '';
-    var payload = { desk: JSON.parse(raw), updated: ts };
     await fetch('https://graph.microsoft.com/v1.0' + MS_DESK_PATH, {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload, null, 2)
+      body: JSON.stringify(deskObj, null, 2)
     });
   } catch(e) { console.log('Desk save error:', e.message); }
 }
@@ -3768,20 +3762,21 @@ async function loadDeskFromOneDrive() {
     });
     if (resp.ok) {
       var data = await resp.json();
-      if (data && data.desk) {
-        // Load into localStorage then call loadDeskState to rebuild the UI
-        localStorage.setItem('tg_desk', JSON.stringify(data.desk));
-        if (data.updated) {
-          localStorage.setItem('tg_desk_updated', data.updated);
-          var ts = document.getElementById('desk-last-updated');
-          if (ts) ts.textContent = 'Last updated: ' + data.updated;
-        }
-        // Clear current desk and rebuild from loaded data
-        document.getElementById('req-blocks').innerHTML = '';
-        document.getElementById('top-leads-rows').innerHTML = '';
-        document.getElementById('hot-candidate-rows').innerHTML = '';
-        document.getElementById('rules-rows').innerHTML = '';
-        loadDeskState();
+      if (data && data.content) {
+        // Split the stored HTML back into the four containers
+        var parts = data.content.split('|||');
+        var reqEl = document.getElementById('req-blocks');
+        var leadsEl = document.getElementById('top-leads-rows');
+        var hotEl = document.getElementById('hot-candidate-rows');
+        var rulesEl = document.getElementById('rules-rows');
+        if (reqEl && parts[0]) reqEl.innerHTML = parts[0];
+        if (leadsEl && parts[1]) leadsEl.innerHTML = parts[1];
+        if (hotEl && parts[2]) hotEl.innerHTML = parts[2];
+        if (rulesEl && parts[3]) rulesEl.innerHTML = parts[3];
+        // Update timestamp
+        var ts = document.getElementById('desk-last-updated');
+        if (ts && data.updated) ts.textContent = 'Last updated: ' + data.updated;
+        localStorage.setItem('tg_desk_updated', data.updated || '');
       }
     }
   } catch(e) { console.log('Desk load error:', e.message); }
