@@ -3746,10 +3746,15 @@ async function saveDeskToOneDrive(deskObj) {
   var token = await getMSToken();
   if (!token) return;
   try {
+    // Save the same JSON structure that saveDeskState uses locally
+    var raw = localStorage.getItem('tg_desk');
+    if (!raw) return;
+    var ts = localStorage.getItem('tg_desk_updated') || '';
+    var payload = { desk: JSON.parse(raw), updated: ts };
     await fetch('https://graph.microsoft.com/v1.0' + MS_DESK_PATH, {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(deskObj, null, 2)
+      body: JSON.stringify(payload, null, 2)
     });
   } catch(e) { console.log('Desk save error:', e.message); }
 }
@@ -3763,13 +3768,20 @@ async function loadDeskFromOneDrive() {
     });
     if (resp.ok) {
       var data = await resp.json();
-      if (data && data.content) {
-        localStorage.setItem('tg_desk_content', data.content);
-        localStorage.setItem('tg_desk_updated', data.updated || '');
-        var el = document.getElementById('desk-content');
-        var ts = document.getElementById('desk-last-updated');
-        if (el) el.innerHTML = data.content;
-        if (ts && data.updated) ts.textContent = 'Last updated: ' + data.updated;
+      if (data && data.desk) {
+        // Load into localStorage then call loadDeskState to rebuild the UI
+        localStorage.setItem('tg_desk', JSON.stringify(data.desk));
+        if (data.updated) {
+          localStorage.setItem('tg_desk_updated', data.updated);
+          var ts = document.getElementById('desk-last-updated');
+          if (ts) ts.textContent = 'Last updated: ' + data.updated;
+        }
+        // Clear current desk and rebuild from loaded data
+        document.getElementById('req-blocks').innerHTML = '';
+        document.getElementById('top-leads-rows').innerHTML = '';
+        document.getElementById('hot-candidate-rows').innerHTML = '';
+        document.getElementById('rules-rows').innerHTML = '';
+        loadDeskState();
       }
     }
   } catch(e) { console.log('Desk load error:', e.message); }
