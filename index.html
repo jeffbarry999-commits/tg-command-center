@@ -801,6 +801,16 @@ function init() {
   loadPlanArchive();
   loadWeekPlanArchive();
   renderArchive();
+  // If tg_desk exists but has no reqs, clear it so default loads cleanly
+  try {
+    var deskRaw = localStorage.getItem("tg_desk");
+    if (deskRaw) {
+      var deskCheck = JSON.parse(deskRaw);
+      if (!deskCheck.reqs || deskCheck.reqs.length === 0) {
+        localStorage.removeItem("tg_desk");
+      }
+    }
+  } catch(e) { localStorage.removeItem("tg_desk"); }
   loadDeskState();
   loadCarries();
   var ts = localStorage.getItem("tg_desk_updated");
@@ -1903,23 +1913,31 @@ function saveDeskState() {
 }
 
 function loadDeskState() {
+  // Always clear first to avoid duplicates
+  document.getElementById("req-blocks").innerHTML = "";
+  document.getElementById("top-leads-rows").innerHTML = "";
+  document.getElementById("hot-candidate-rows").innerHTML = "";
+  document.getElementById("rules-rows").innerHTML = "";
   try {
     var raw = localStorage.getItem("tg_desk");
     if (!raw) { loadDefaultDeskState(); return; }
     var desk = JSON.parse(raw);
     if (desk.reqs && desk.reqs.length > 0) {
       desk.reqs.forEach(function(d){ addReqBlock(d); });
+      (desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
+      (desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
+      (desk.rules||[]).forEach(function(d){ addRuleRow(d); });
     } else {
-      loadDefaultDeskState(); return;
+      loadDefaultDeskState();
     }
-    (desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
-    (desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
-    (desk.rules||[]).forEach(function(d){ addRuleRow(d); });
-  } catch(e) { loadDefaultDeskState(); }
+  } catch(e) {
+    console.log("loadDeskState error:", e.message);
+    loadDefaultDeskState();
+  }
 }
 
 function loadDefaultDeskState() {
-  // WEEKLEY NATIONAL SC DIR — May 5 data
+  // Your actual desk data as of 5/5/2026 - restored from OneDrive
   addReqBlock({
     "req-title": "National Supply Chain Director",
     "req-client": "David Weekley Homes",
@@ -1932,32 +1950,28 @@ function loadDefaultDeskState() {
       {"cand-name":"Mike Demboski","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Get resume. Review and submit to John if strong."}
     ]
   });
-  // WEEKLEY CHARLESTON PURCHASING AGENT
   addReqBlock({
-    "req-title": "Purchasing Agent — Charleston",
+    "req-title": "Purchasing Agent - Charleston",
     "req-client": "David Weekley Homes",
     "req-hm": "TBD (likely Bryan Booth DP or PM)",
     candidates: [
-      {"cand-name":"Inbound from Crislyn Coan (TA). Outside scope of Supply Chain engagement — contingent opportunity.","cand-stage":"Contacting","cand-touch":"","cand-next":"Get JD from Crislyn. Confirm HM. Clarify fee/process."}
+      {"cand-name":"Inbound from Crislyn Coan (TA). Outside scope of Supply Chain engagement - contingent opportunity.","cand-stage":"Contacting","cand-touch":"","cand-next":"Get JD from Crislyn. Confirm HM. Clarify fee/process."}
     ]
   });
-  // TOP 5 LEADS
   [
-    {"tl-lead":"Forestar — Phoenix Region VP","tl-status":"Hot — req likely","tl-next":"Kelly Foster call — prep and execute. Jeff Pape interim covering Phoenix. 3 internal candidates plus local known commodity."},
-    {"tl-lead":"Pulte LAM — Ryan Cole","tl-status":"Hot — req likely","tl-next":"Await response to email sent 5/1. Follow up in 10 days if nothing."},
-    {"tl-lead":"Faircroft — Purchasing Backfill","tl-status":"Hot — req likely","tl-next":"Follow up with Gareth Bracken. William Oertl left for Century Homes VP role — purchasing vacancy confirmed via Andrew Foote."},
-    {"tl-lead":"Ashton Woods — LD","tl-status":"Hot — req likely","tl-next":"Find Jeremy Ramsdell contact info or reach Scott Moore DP directly."},
-    {"tl-lead":"ICI Homes — Daytona Land","tl-status":"Hot — req likely","tl-next":"Follow up with Ryan Khan. Clarify Florida land scope."}
+    {"tl-lead":"Forestar - Phoenix Region VP","tl-status":"Hot — req likely","tl-next":"Kelly Foster call - prep and execute. Jeff Pape interim covering Phoenix. 3 internal candidates plus local known commodity."},
+    {"tl-lead":"Pulte LAM - Ryan Cole","tl-status":"Hot — req likely","tl-next":"Await response to email sent 5/1. Follow up in 10 days if nothing."},
+    {"tl-lead":"Faircroft - Purchasing Backfill","tl-status":"Hot — req likely","tl-next":"Follow up with Gareth Bracken. William Oertl left for Century Homes VP role - purchasing vacancy confirmed via Andrew Foote."},
+    {"tl-lead":"Ashton Woods - LD","tl-status":"Hot — req likely","tl-next":"Find Jeremy Ramsdell contact info or reach Scott Moore DP directly."},
+    {"tl-lead":"ICI Homes - Daytona Land","tl-status":"Hot — req likely","tl-next":"Follow up with Ryan Khan. Clarify Florida land scope."}
   ].forEach(function(d){ addTopLeadRow(d); });
-  // HOT CANDIDATES — blank per May 5 data
   addHotCandidateRow({});
-  // RULES
   [
     {text:"No new verticals until homebuilding hits $250K"},
-    {text:"3 activation contacts every day — email, call, or LinkedIn — non-negotiable"},
-    {text:"One signed engagement per month — if pipeline is thin everything stops until fixed"},
-    {text:"Selective contingent from trusted relationships is not a concession — it is a Trojan horse"},
-    {text:"Lead every BD call with a candidate or intelligence — never lead with the engaged search pitch cold"},
+    {text:"3 activation contacts every day - email, call, or LinkedIn - non-negotiable"},
+    {text:"One signed engagement per month - if pipeline is thin everything stops until fixed"},
+    {text:"Selective contingent from trusted relationships is not a concession - it is a Trojan horse"},
+    {text:"Lead every BD call with a candidate or intelligence - never lead with the engaged search pitch cold"},
     {text:"Signed Engagements: 1 of 12"},
     {text:"Placements: 0 of 6"},
     {text:"Revenue YTD: $16,750"},
@@ -1966,9 +1980,6 @@ function loadDefaultDeskState() {
   saveDeskState();
 }
 
-// ============================================================
-// WEEK PLAN
-// ============================================================
 function buildPlanUI() {
   var reqContainer = document.getElementById("req-rows");
   reqContainer.innerHTML = "";
