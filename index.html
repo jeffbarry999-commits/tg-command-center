@@ -259,6 +259,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <button class="nav-btn" onclick="switchTab('plan',this)">Week Plan</button>
   <button class="nav-btn" onclick="switchTab('weekly',this)">Weekly View</button>
   <button class="nav-btn" onclick="switchTab('archive',this)">Archive</button>
+  <button class="nav-btn" onclick="switchTab('claude',this)" style="color:#1D9E75;font-weight:bold;">⚡ Claude</button>
   <button class="nav-btn" onclick="switchTab('howto',this)" style="color:#BA7517;">How to Use</button>
   <button class="nav-btn" onclick="switchTab('settings',this)" style="color:#888780;">Settings</button>
   <div style="margin-left:auto;display:flex;gap:6px;padding:6px 0;">
@@ -1673,7 +1674,11 @@ function updateDeskFromClaude() {
   s.style.display = "inline"; s.textContent = "My Desk updated.";
   setTimeout(function(){ s.style.display="none"; }, 4000);
   // Save My Desk to OneDrive
-  saveDeskToOneDrive({ content: document.getElementById('req-blocks').innerHTML + '|||' + document.getElementById('top-leads-rows').innerHTML + '|||' + document.getElementById('hot-candidate-rows').innerHTML + '|||' + document.getElementById('rules-rows').innerHTML, updated: ts });
+  // Save structured JSON to OneDrive
+  var deskJSON = localStorage.getItem('tg_desk');
+  if (deskJSON) {
+    saveDeskToOneDrive({ desk: JSON.parse(deskJSON), updated: ts });
+  }
 }
 
 function buildDeskLines() {
@@ -3340,6 +3345,54 @@ function switchIntelView(view) {
 </div>
 </div>
 
+<!-- CLAUDE TAB -->
+<div id="tab-claude" class="tab-pane">
+<div class="page" style="max-width:900px;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:16px;font-weight:bold;">Claude — Your Thinking Partner</div>
+      <div id="claude-desk-status" style="font-size:11px;color:#888780;margin-top:2px;">My Desk loads automatically when you open this tab. No paste needed.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" style="font-size:11px;background:#1D9E75;color:white;" onclick="claudeNewSession()">New Session</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="claudeInjectDesk()">Reload My Desk</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="claudeCopyThread()">Copy Thread</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('plan')">Plan My Day</button>
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('eod')">End of Day</button>
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('bd')">BD Strategy</button>
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('intel')">Process Intel</button>
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('draft')">Draft Message</button>
+    <button class="btn" style="font-size:11px;background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;" onclick="claudeQuickCmd('monday')">Monday Setup</button>
+  </div>
+
+  <div style="background:white;border:1px solid #e0e0d8;border-radius:10px;margin-bottom:12px;overflow:hidden;">
+    <div id="claude-messages" style="height:480px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <div id="claude-welcome" style="text-align:center;color:#b4b2a9;font-size:12px;font-style:italic;padding:20px 0;">
+        Claude is ready. Your My Desk context loads automatically.<br>Type a message or use a quick command above.
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:flex-end;">
+    <textarea id="claude-input" class="notes-area" style="flex:1;min-height:60px;max-height:160px;resize:vertical;font-size:13px;" placeholder="Type your message... (Shift+Enter for new line, Enter to send)"></textarea>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <button class="btn btn-green" style="padding:10px 18px;white-space:nowrap;" onclick="claudeSend()" id="claude-send-btn">Send</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="claudeClearChat()">Clear</button>
+    </div>
+  </div>
+
+  <div id="claude-no-key" style="display:none;background:#FFF2CC;border:1px solid #FFD966;border-radius:8px;padding:12px;margin-top:10px;font-size:12px;color:#7F6000;">
+    No API key found. Go to <strong>Settings</strong> tab, paste your Anthropic API key, and click Save. Then return here.
+  </div>
+
+</div>
+</div>
+
 <!-- HOW TO USE TAB -->
 <div id="tab-howto" class="tab-pane">
 <div class="page">
@@ -3429,6 +3482,20 @@ function switchIntelView(view) {
       </div>
       <div style="font-size:11px;color:#1D9E75;margin-top:6px;">Intelligence saving to OneDrive — TG Command Center/TG_Intelligence.json</div>
     </div>
+  </div>
+
+  <!-- ANTHROPIC API KEY -->
+  <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid #1D9E75;">
+    <div class="card-title" style="color:#1D9E75;">Anthropic API Key — Claude Panel</div>
+    <p style="font-size:12px;color:#888780;margin-bottom:14px;">Get your key at console.anthropic.com → API Keys. Stored only in your browser — never sent anywhere except directly to Anthropic's API.</p>
+    <div class="field-group">
+      <input type="password" id="settings-api-key" placeholder="sk-ant-..." style="font-size:13px;padding:10px 12px;width:100%;">
+    </div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn btn-green" onclick="saveAnthropicKey()">Save Key</button>
+      <span id="api-key-status" style="font-size:11px;display:none;margin-left:8px;"></span>
+    </div>
+    <p style="font-size:11px;color:#888780;margin-top:10px;">After saving, open the Claude tab — it will be active immediately. Estimated cost: ~$3-8/month at normal usage.</p>
   </div>
 
   <!-- RECRUIT CRM -->
@@ -3762,22 +3829,27 @@ async function loadDeskFromOneDrive() {
     });
     if (resp.ok) {
       var data = await resp.json();
-      if (data && data.content) {
-        // Split the stored HTML back into the four containers
-        var parts = data.content.split('|||');
-        var reqEl = document.getElementById('req-blocks');
-        var leadsEl = document.getElementById('top-leads-rows');
-        var hotEl = document.getElementById('hot-candidate-rows');
-        var rulesEl = document.getElementById('rules-rows');
-        if (reqEl && parts[0]) reqEl.innerHTML = parts[0];
-        if (leadsEl && parts[1]) leadsEl.innerHTML = parts[1];
-        if (hotEl && parts[2]) hotEl.innerHTML = parts[2];
-        if (rulesEl && parts[3]) rulesEl.innerHTML = parts[3];
-        // Update timestamp
+
+      // OLD FORMAT: data.content with ||| separator — raw innerHTML, broken. Ignore it.
+      // Only load if it is the new JSON format (data.desk with reqs array)
+      if (data && data.desk && Array.isArray(data.desk.reqs) && data.desk.reqs.length > 0) {
+        // Clear current rendered content
+        document.getElementById('req-blocks').innerHTML = '';
+        document.getElementById('top-leads-rows').innerHTML = '';
+        document.getElementById('hot-candidate-rows').innerHTML = '';
+        document.getElementById('rules-rows').innerHTML = '';
+        // Re-render using the proper builder functions
+        data.desk.reqs.forEach(function(d){ addReqBlock(d); });
+        (data.desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
+        (data.desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
+        (data.desk.rules||[]).forEach(function(d){ addRuleRow(d); });
+        // Also update localStorage so next load is instant
+        localStorage.setItem('tg_desk', JSON.stringify(data.desk));
         var ts = document.getElementById('desk-last-updated');
         if (ts && data.updated) ts.textContent = 'Last updated: ' + data.updated;
         localStorage.setItem('tg_desk_updated', data.updated || '');
       }
+      // If old format or no desk data — do nothing, keep what localStorage already rendered
     }
   } catch(e) { console.log('Desk load error:', e.message); }
 }
@@ -4165,6 +4237,274 @@ function loadIntelCache() {
   } catch(e) {}
 }
 
+
+// ============================================================
+// CLAUDE PANEL — EMBEDDED AI
+// ============================================================
+var claudeMessages = []; // conversation history for API
+var claudeDeskContext = ''; // current My Desk state injected as system context
+
+function saveAnthropicKey() {
+  var key = ((document.getElementById('settings-api-key') || {value:''}).value || '').trim();
+  if (!key || !key.startsWith('sk-ant-')) { alert('Paste a valid Anthropic API key (starts with sk-ant-).'); return; }
+  localStorage.setItem('tg_api_key', key);
+  var s = document.getElementById('api-key-status');
+  if (s) { s.style.display = 'inline'; s.style.color = '#1D9E75'; s.textContent = 'Key saved. Open Claude tab.'; }
+  var noKey = document.getElementById('claude-no-key');
+  if (noKey) noKey.style.display = 'none';
+}
+
+function claudeGetKey() {
+  return localStorage.getItem('tg_api_key') || '';
+}
+
+function claudeBuildDeskContext() {
+  // Build a My Desk summary from current app state
+  var lines = ['THOMAS GRACE — MY DESK — ' + new Date().toLocaleDateString(), ''];
+  lines.push('ACTIVE SEARCHES:');
+  document.querySelectorAll('#req-blocks .req-block').forEach(function(block) {
+    var title = (block.querySelector("[data-key='req-title']") || {value:''}).value || '';
+    var client = (block.querySelector("[data-key='req-client']") || {value:''}).value || '';
+    var hm = (block.querySelector("[data-key='req-hm']") || {value:''}).value || '';
+    if (title) {
+      lines.push('REQ: ' + title + ' | ' + client + ' | HM: ' + hm);
+      block.querySelectorAll('.cand-rows > div').forEach(function(row) {
+        var name = (row.querySelector("[data-key='cand-name']") || {value:''}).value || '';
+        var stage = (row.querySelector("[data-key='cand-stage']") || {value:''}).value || '';
+        var touch = (row.querySelector("[data-key='cand-touch']") || {value:''}).value || '';
+        var next = (row.querySelector("[data-key='cand-next']") || {value:''}).value || '';
+        if (name) lines.push('  · ' + name + ' | ' + stage + ' | Last: ' + touch + ' | Next: ' + next);
+      });
+    }
+  });
+  lines.push('');
+  lines.push('TOP 5 LEADS:');
+  document.querySelectorAll('#top-leads-rows > div').forEach(function(row) {
+    var lead = (row.querySelector("[data-key='tl-lead']") || {value:''}).value || '';
+    var status = (row.querySelector("[data-key='tl-status']") || {value:''}).value || '';
+    var next = (row.querySelector("[data-key='tl-next']") || {value:''}).value || '';
+    if (lead) lines.push('  · ' + lead + ' | ' + status + ' | Next: ' + next);
+  });
+  lines.push('');
+  lines.push('HOT CANDIDATES:');
+  document.querySelectorAll('#hot-candidate-rows > div').forEach(function(row) {
+    var name = (row.querySelector("[data-key='hc-name']") || {value:''}).value || '';
+    if (name) lines.push('  · ' + name);
+  });
+  lines.push('');
+  lines.push('TODAY LOG SUMMARY:');
+  lines.push('  ' + log.length + ' interactions logged today.');
+  if (log.length > 0) {
+    log.slice(-5).forEach(function(item) {
+      lines.push('  · ' + item.time + ' | ' + item.purpose + ' | ' + (item.contact || '') + (item.notes ? ' — ' + item.notes.substring(0, 80) : ''));
+    });
+  }
+  return lines.join('\n');
+}
+
+function claudeGetSystemPrompt() {
+  return 'You are Claude, the embedded AI thinking partner inside the TG Command Center — the daily operating system for Jeff Barry, founder of Thomas Grace LLC, a specialized homebuilding recruiting firm.\n\n' +
+    'Jeff is a relationship recruiter with 25 years of experience and 15 years deep in homebuilding. He runs an engaged search model targeting $300K gross in 2026. His moat is a nationwide homebuilding network. He competes on depth, not volume.\n\n' +
+    'KEY CONTEXT:\n' +
+    '- Primary product: Engaged Search ($5K engagement fee + 20-25% placement fee, avg $30K per placement)\n' +
+    '- Secondary: Selective Contingent (Trojan Horse from trusted relationships only)\n' +
+    '- Target: 1 new signed engagement per month, 12 total in 2026\n' +
+    '- Current scoreboard: 1 signed engagement, 0 placements, $16,750 revenue YTD\n' +
+    '- Markets: 25 metros across homebuilding nationally\n' +
+    '- Rule: No new verticals until homebuilding hits $250K\n\n' +
+    'JEFF\'S MY DESK (current state):\n' + claudeDeskContext + '\n\n' +
+    'RULES FOR HOW YOU OPERATE:\n' +
+    '- Be direct and specific. Jeff does not want generic advice.\n' +
+    '- You know his business model deeply. Reference it.\n' +
+    '- When helping with EOD, follow the 8-thing format: Organized Summary, CRM Notes, Candidate Pipeline Update, BD Pipeline Update, Tomorrow\'s Needle Movers, Close Out Checklist, Updated My Desk block, Intelligence Block.\n' +
+    '- Format CRM notes ready to paste. Format intelligence blocks with ---ENTRY--- separator.\n' +
+    '- Keep responses focused. Long when needed, short when not.\n' +
+    '- Never tell Jeff to do something his Business Truth says not to do.';
+}
+
+function claudeAddMessage(role, content, isSystem) {
+  var messagesEl = document.getElementById('claude-messages');
+  if (!messagesEl) return;
+
+  // Remove welcome message on first real message
+  var welcome = document.getElementById('claude-welcome');
+  if (welcome) welcome.remove();
+
+  var div = document.createElement('div');
+  var isUser = role === 'user';
+  var isError = role === 'error';
+
+  div.style.cssText = 'display:flex;gap:8px;align-items:flex-start;' + (isUser ? 'flex-direction:row-reverse;' : '');
+
+  var avatar = document.createElement('div');
+  avatar.style.cssText = 'width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;' +
+    (isUser ? 'background:#2c2c2a;color:white;' : isError ? 'background:#E24B4A;color:white;' : 'background:#1D9E75;color:white;');
+  avatar.textContent = isUser ? 'J' : isError ? '!' : 'C';
+
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:82%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;' +
+    (isUser ? 'background:#2c2c2a;color:white;border-bottom-right-radius:3px;' :
+     isError ? 'background:#FAECE7;color:#712B13;border:1px solid #F4B183;' :
+     'background:#f5f5f0;color:#2c2c2a;border:1px solid #e0e0d8;border-bottom-left-radius:3px;');
+  bubble.textContent = content;
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function claudeAddTyping() {
+  var messagesEl = document.getElementById('claude-messages');
+  var div = document.createElement('div');
+  div.id = 'claude-typing';
+  div.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  div.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:#1D9E75;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0;">C</div>' +
+    '<div style="background:#f5f5f0;border:1px solid #e0e0d8;border-radius:10px;padding:10px 14px;font-size:13px;color:#888780;">Thinking...</div>';
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function claudeRemoveTyping() {
+  var t = document.getElementById('claude-typing');
+  if (t) t.remove();
+}
+
+async function claudeSend() {
+  var input = document.getElementById('claude-input');
+  var text = (input ? input.value.trim() : '');
+  if (!text) return;
+
+  var key = claudeGetKey();
+  if (!key) {
+    var noKey = document.getElementById('claude-no-key');
+    if (noKey) noKey.style.display = 'block';
+    return;
+  }
+
+  // Add to UI and history
+  claudeAddMessage('user', text);
+  claudeMessages.push({ role: 'user', content: text });
+  if (input) input.value = '';
+
+  // Disable send
+  var sendBtn = document.getElementById('claude-send-btn');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '...'; }
+
+  claudeAddTyping();
+
+  try {
+    var response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: claudeGetSystemPrompt(),
+        messages: claudeMessages
+      })
+    });
+
+    var data = await response.json();
+
+    if (!response.ok) {
+      var errMsg = (data.error && data.error.message) || 'API error: ' + response.status;
+      if (response.status === 401) errMsg = 'Invalid API key. Check Settings and try again.';
+      claudeRemoveTyping();
+      claudeAddMessage('error', errMsg);
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+      return;
+    }
+
+    var replyText = data.content && data.content[0] && data.content[0].text || 'No response.';
+    claudeRemoveTyping();
+    claudeAddMessage('assistant', replyText);
+    claudeMessages.push({ role: 'assistant', content: replyText });
+
+  } catch(e) {
+    claudeRemoveTyping();
+    claudeAddMessage('error', 'Network error: ' + e.message + '. Check your connection.');
+  }
+
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+}
+
+function claudeNewSession() {
+  claudeMessages = [];
+  var messagesEl = document.getElementById('claude-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML = '<div id="claude-welcome" style="text-align:center;color:#b4b2a9;font-size:12px;font-style:italic;padding:20px 0;">New session started. My Desk context reloaded.<br>Type a message or use a quick command.</div>';
+  }
+  claudeInjectDesk();
+}
+
+function claudeInjectDesk() {
+  claudeDeskContext = claudeBuildDeskContext();
+  var status = document.getElementById('claude-desk-status');
+  if (status) status.textContent = 'My Desk loaded at ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' — ' + document.querySelectorAll('#req-blocks .req-block').length + ' searches, ' + document.querySelectorAll('#top-leads-rows > div').length + ' leads, ' + log.length + ' interactions today.';
+}
+
+function claudeQuickCmd(type) {
+  var cmds = {
+    plan: "Today is " + new Date().toLocaleDateString() + ". Let's plan my day. Review my My Desk and tell me where I stand, what needs to move today, and give me suggested goals for each bucket: Recruiting, Delivery, BD, Admin, Personal.",
+    eod: "End of day. Here is today's summary: " + (lastEOD || "No EOD summary generated yet - run End of Day Review in Daily Capture first.") + "\n\nGive me my eight things.",
+    bd: "I need to make BD calls today. Based on my current leads and desk state, help me prioritize who to call, what to lead with for each, and what the ask is.",
+    intel: "Help me process what I learned today. Based on my log, what are the key intelligence items I should file and what do they mean for my pipeline?",
+    draft: "I need to draft a message. Tell me: who is it to, what is the purpose, and what do you want to say? I'll help you write it.",
+    monday: "Today is Monday " + new Date().toLocaleDateString() + ". Let's set the week. Review my desk and help me plan: top 5 goals, top 5 markets to hit, what searches need to move this week, and what BD threads to push."
+  };
+  var input = document.getElementById('claude-input');
+  if (input) { input.value = cmds[type] || ''; input.focus(); }
+}
+
+function claudeClearChat() {
+  claudeNewSession();
+}
+
+function claudeCopyThread() {
+  var lines = claudeMessages.map(function(m) {
+    return (m.role === 'user' ? 'Jeff: ' : 'Claude: ') + m.content;
+  });
+  navigator.clipboard.writeText(lines.join('\n\n')).then(function() {
+    alert('Thread copied to clipboard.');
+  });
+}
+
+// Load My Desk context when Claude tab opens
+var _origSwitchTab = switchTab;
+switchTab = function(tabId, btn) {
+  _origSwitchTab(tabId, btn);
+  if (tabId === 'claude') {
+    claudeInjectDesk();
+    var key = claudeGetKey();
+    var noKey = document.getElementById('claude-no-key');
+    if (noKey) noKey.style.display = key ? 'none' : 'block';
+    // Pre-fill API key field if saved
+    var keyInput = document.getElementById('settings-api-key');
+    if (keyInput && key) keyInput.value = key;
+  }
+};
+
+// Enter to send, Shift+Enter for new line
+document.addEventListener('DOMContentLoaded', function() {
+  var input = document.getElementById('claude-input');
+  if (input) {
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        claudeSend();
+      }
+    });
+  }
+  // Pre-fill API key if exists
+  var key = claudeGetKey();
+  var keyInput = document.getElementById('settings-api-key');
+  if (keyInput && key) keyInput.value = key;
+});
 // Initialize
 loadIntelCache();
 renderScoreboard();
