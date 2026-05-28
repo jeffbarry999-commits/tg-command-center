@@ -1909,6 +1909,12 @@ function saveDeskState() {
       if (inp.value) desk.rules.push({ text: inp.value });
     });
     localStorage.setItem("tg_desk", JSON.stringify(desk));
+    // Auto-save to OneDrive on every change (debounced 3 seconds)
+    clearTimeout(window._deskSaveTimer);
+    window._deskSaveTimer = setTimeout(function() {
+      var ts = new Date().toISOString();
+      saveDeskToOneDrive({ desk: desk, updated: ts });
+    }, 3000);
   } catch(e) {}
 }
 
