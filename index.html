@@ -1910,18 +1910,42 @@ function addRuleRow(data) {
 function addTargetRow(data) {
   data = data || {};
   var div = document.createElement("div");
-  div.style.cssText = "display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f5f0;";
-  var typeColor = data.type === 'rotation' ? '#888780' : '#185FA5';
+  div.style.cssText = "display:grid;grid-template-columns:75px 1fr 1.5fr 80px 24px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f0;";
   var typeBadge = data.type === 'rotation' ? 'Rotation' : 'Anchor';
-  div.innerHTML =
-    '<span style="font-size:10px;background:' + typeColor + ';color:white;border-radius:3px;padding:1px 6px;flex-shrink:0;">' + typeBadge + '</span>' +
-    '<input type="text" placeholder="Company name..." data-key="target-name" style="flex:1;border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" oninput="saveDeskState()" value="' + (data.name||'') + '">' +
-    '<input type="text" placeholder="Notes / contact..." data-key="target-note" style="flex:2;border:none;font-size:12px;font-family:Arial;color:#888780;background:transparent;outline:none;" oninput="saveDeskState()" value="' + (data.note||'') + '">' +
-    '<select data-key="target-type" style="border:none;font-size:11px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" onchange="saveDeskState();this.closest(\'div\').querySelector(\'span\').textContent=this.value===\'rotation\'?\'Rotation\':\'Anchor\';this.closest(\'div\').querySelector(\'span\').style.background=this.value===\'rotation\'?\'#888780\':\'#185FA5\';">' +
-    '<option value="anchor"' + (data.type!=='rotation'?' selected':'') + '>Anchor</option>' +
-    '<option value="rotation"' + (data.type==='rotation'?' selected':'') + '>Rotation</option>' +
-    '</select>' +
-    '<button onclick="this.parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;">×</button>';
+  var typeColor = data.type === 'rotation' ? '#888780' : '#185FA5';
+  var nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Company name...';
+  nameInput.setAttribute('data-key', 'target-name');
+  nameInput.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid #e0e0d8;border-radius:4px;font-size:13px;font-family:Arial;color:#2c2c2a;background:white;outline:none;padding:4px 8px;';
+  nameInput.value = data.name || '';
+  nameInput.oninput = function(){ saveDeskState(); };
+  var noteInput = document.createElement('input');
+  noteInput.type = 'text';
+  noteInput.placeholder = 'Notes / contact...';
+  noteInput.setAttribute('data-key', 'target-note');
+  noteInput.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid #e0e0d8;border-radius:4px;font-size:12px;font-family:Arial;color:#888780;background:white;outline:none;padding:4px 8px;';
+  noteInput.value = data.note || '';
+  noteInput.oninput = function(){ saveDeskState(); };
+  var badge = document.createElement('span');
+  badge.className = 'target-badge';
+  badge.style.cssText = 'font-size:10px;background:' + typeColor + ';color:white;border-radius:3px;padding:2px 7px;text-align:center;display:block;';
+  badge.textContent = typeBadge;
+  var sel = document.createElement('select');
+  sel.setAttribute('data-key', 'target-type');
+  sel.style.cssText = 'width:100%;border:1px solid #e0e0d8;border-radius:4px;font-size:11px;font-family:Arial;color:#2c2c2a;background:white;outline:none;padding:4px;';
+  sel.innerHTML = '<option value="anchor">Anchor</option><option value="rotation">Rotation</option>';
+  sel.value = data.type === 'rotation' ? 'rotation' : 'anchor';
+  sel.onchange = function(){ saveDeskState(); var isRot=this.value==='rotation'; badge.textContent=isRot?'Rotation':'Anchor'; badge.style.background=isRot?'#888780':'#185FA5'; };
+  var btn = document.createElement('button');
+  btn.innerHTML = '×';
+  btn.style.cssText = 'border:none;background:none;color:#E24B4A;cursor:pointer;font-size:16px;';
+  btn.onclick = function(){ div.remove(); saveDeskState(); };
+  div.appendChild(badge);
+  div.appendChild(nameInput);
+  div.appendChild(noteInput);
+  div.appendChild(sel);
+  div.appendChild(btn);
   document.getElementById("target-rows").appendChild(div);
 }
 
@@ -2012,14 +2036,6 @@ function loadDefaultDeskState() {
       {"cand-name":"Reid Haynie","cand-stage":"On Hold","cand-touch":"5/15","cand-next":"Told him Houston off the table. John may reach out directly. Reid receptive, would welcome conversation. No action needed — ball in John's court."},
       {"cand-name":"Andrew Foote","cand-stage":"Not a Fit","cand-touch":"4/29","cand-next":"Met with John. Weekley likes him but not for Supply Chain Director. Call Andrew — understand where his head is, explore other fits."},
       {"cand-name":"Stephen Applewhite","cand-stage":"Not a Fit","cand-touch":"5/28","cand-next":"Withdrew. Accepted VP Supply Chain at Evergreen Residential in Dallas. BTR maintenance, secured big contract. Good relationship. Follow up in one month."}
-    ]
-  });
-  addReqBlock({
-    "req-title": "Purchasing Agent - Charleston",
-    "req-client": "David Weekley Homes",
-    "req-hm": "TBD — Crislyn Coan (TA)",
-    candidates: [
-      {"cand-name":"Stalled on agreement","cand-stage":"On Hold","cand-touch":"5/14","cand-next":"New agreement needed since Robert Heffner gone. Fee at 20% confirmed. No JD yet, no HM confirmed. Call Crislyn Coan today — 2 weeks of silence."}
     ]
   });
   [
