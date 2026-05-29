@@ -3927,7 +3927,7 @@ async function loadDeskFromOneDrive() {
 
       // OLD FORMAT: data.content with ||| separator — raw innerHTML, broken. Ignore it.
       // Only load if it is the new JSON format (data.desk with reqs array)
-      if (data && data.desk && (Array.isArray(data.desk.reqs) && data.desk.reqs.length > 0 || Array.isArray(data.desk.hotCandidates) && data.desk.hotCandidates.length > 0)) {
+      if (data && data.desk && Array.isArray(data.desk.reqs) && data.desk.reqs.length > 0) {
         // Clear current rendered content
         document.getElementById('req-blocks').innerHTML = '';
         document.getElementById('top-leads-rows').innerHTML = '';
@@ -4609,6 +4609,14 @@ renderScoreboard();
 // Clear any corrupted desk data and load fresh default
 localStorage.removeItem('tg_desk');
 loadDefaultDeskState();
+// Save good data to OneDrive immediately to overwrite any blank OneDrive data
+setTimeout(function() {
+  var deskJSON = localStorage.getItem('tg_desk');
+  if (deskJSON) {
+    var ts = new Date().toISOString();
+    saveDeskToOneDrive({ desk: JSON.parse(deskJSON), updated: ts });
+  }
+}, 5000);
 initMSAL();
 </script>
 </html>
