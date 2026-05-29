@@ -276,7 +276,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
     <div>
       <div style="font-size:16px;font-weight:bold;">My Desk</div>
-      <div id="desk-last-updated" style="font-size:11px;color:#888780;margin-top:2px;">Not yet updated — paste Claude's EOD response below to update</div>
+      <div id="desk-last-updated" style="font-size:11px;color:#888780;margin-top:2px;">Loading...</div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-blue" style="font-size:11px;" onclick="copyDeskForClaude()">Copy for Claude</button>
@@ -287,7 +287,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <!-- UPDATE FROM CLAUDE -->
   <div class="card">
     <div class="card-title" style="color:#1D9E75;">Update My Desk from Claude</div>
-    <p style="font-size:12px;color:#888780;margin-bottom:10px;">At end of day, paste Claude's full EOD response here and click Update. My Desk updates automatically.</p>
+    <p style="font-size:12px;color:#888780;margin-bottom:10px;">At EOD paste Claude's response here and click Update. Your desk is backed up before any change.</p>
     <textarea id="desk-claude-paste" class="notes-area" style="min-height:90px;" placeholder="Paste Claude's end of day response here..."></textarea>
     <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
       <button class="btn btn-green" onclick="updateDeskFromClaude()">Update My Desk</button>
@@ -295,19 +295,19 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     </div>
   </div>
 
-  <!-- OPEN REQS -->
+  <!-- ACTIVE SEARCHES -->
   <div class="card">
     <div class="card-title" style="color:#1D9E75;">
-      <span>Open Reqs</span>
-      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addReqBlock()">+ Add Req</button>
+      <span>Active Searches</span>
+      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addReqBlock()">+ Add Search</button>
     </div>
     <div id="req-blocks"></div>
   </div>
 
-  <!-- TOP 5 LEADS -->
+  <!-- TOP LEADS -->
   <div class="card">
     <div class="card-title" style="color:#BA7517;">
-      <span>Top 5 Leads</span>
+      <span>Top Leads <span style="font-weight:normal;font-size:11px;color:#888780;">— deals close to closing, max 5</span></span>
       <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addTopLeadRow()">+ Add Lead</button>
     </div>
     <div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:6px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f0f0ea;">
@@ -316,11 +316,24 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div id="top-leads-rows"></div>
   </div>
 
+  <!-- TARGETS -->
+  <div class="card">
+    <div class="card-title" style="color:#185FA5;">
+      <span>Targets</span>
+      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addTargetRow()">+ Add Target</button>
+    </div>
+    <div style="font-size:11px;color:#888780;margin-bottom:8px;">Anchor targets reviewed quarterly &middot; Rotation targets adjusted daily</div>
+    <div id="target-rows"></div>
+  </div>
+
   <!-- HOT CANDIDATES -->
   <div class="card">
-    <div class="card-title" style="color:#378ADD;">Hot Candidates to Market</div>
+    <div class="card-title" style="color:#378ADD;">
+      <span>Hot Candidates <span style="font-weight:normal;font-size:11px;color:#888780;">— max 10</span></span>
+      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addHotCandidateRow()">+ Add Candidate</button>
+    </div>
     <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1.5fr;gap:6px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f0f0ea;">
-      <span class="desk-col-label">Candidate</span><span class="desk-col-label">Role / Comp</span><span class="desk-col-label">Location</span><span class="desk-col-label">Who to Call</span>
+      <span class="desk-col-label">Name</span><span class="desk-col-label">Function</span><span class="desk-col-label">Market</span><span class="desk-col-label">Background / Note</span>
     </div>
     <div id="hot-candidate-rows"></div>
   </div>
@@ -333,13 +346,10 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 
   <!-- 2026 SCOREBOARD -->
   <div class="card">
-    <div class="card-title" style="color:#2c2c2a;">2026 Scoreboard
-      <span style="font-size:10px;font-weight:normal;color:#888780;margin-left:8px;">Updates automatically with + buttons or via Claude EOD</span>
-    </div>
+    <div class="card-title" style="color:#2c2c2a;">2026 Scoreboard</div>
     <div id="scoreboard-card"><div class="empty-state">Loading scoreboard...</div></div>
   </div>
 
-  <!-- legacy hidden container to avoid JS errors -->
   <div id="search-rows" style="display:none;"></div>
   <div id="leads-opp-rows" style="display:none;"></div>
 
@@ -1539,8 +1549,12 @@ function updateDeskFromClaude() {
   var raw = document.getElementById("desk-claude-paste").value.trim();
   if (!raw) { alert("Paste Claude's response first."); return; }
 
+  // BACKUP current state before clearing anything
+  var backup = localStorage.getItem("tg_desk");
+
   document.getElementById("req-blocks").innerHTML = "";
   document.getElementById("top-leads-rows").innerHTML = "";
+  document.getElementById("target-rows").innerHTML = "";
   document.getElementById("hot-candidate-rows").innerHTML = "";
   document.getElementById("rules-rows").innerHTML = "";
 
@@ -1674,6 +1688,25 @@ function updateDeskFromClaude() {
     addRuleRow({ text: stripBullet(line) });
   });
 
+  // If nothing parsed — restore from backup so desk never goes blank
+  var reqCount = document.getElementById("req-blocks").children.length;
+  var candCount = document.getElementById("hot-candidate-rows").children.length;
+  if (reqCount === 0 && candCount === 0 && backup) {
+    alert("Could not parse that format. Your desk has been restored. No data was lost.");
+    document.getElementById("req-blocks").innerHTML = "";
+    document.getElementById("top-leads-rows").innerHTML = "";
+    document.getElementById("hot-candidate-rows").innerHTML = "";
+    document.getElementById("rules-rows").innerHTML = "";
+    var bd = JSON.parse(backup);
+    (bd.reqs||[]).forEach(function(d){ addReqBlock(d); });
+    (bd.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
+    (bd.targets||[]).forEach(function(d){ addTargetRow(d); });
+    (bd.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
+    (bd.rules||[]).forEach(function(d){ addRuleRow(d); });
+    document.getElementById("desk-claude-paste").value = "";
+    return;
+  }
+
   saveDeskState();
   var now = new Date();
   var ts = now.toLocaleDateString() + " at " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
@@ -1683,8 +1716,6 @@ function updateDeskFromClaude() {
   var s = document.getElementById("desk-update-status");
   s.style.display = "inline"; s.textContent = "My Desk updated.";
   setTimeout(function(){ s.style.display="none"; }, 4000);
-  // Save My Desk to OneDrive
-  // Save structured JSON to OneDrive
   var deskJSON = localStorage.getItem('tg_desk');
   if (deskJSON) {
     saveDeskToOneDrive({ desk: JSON.parse(deskJSON), updated: ts });
@@ -1876,6 +1907,24 @@ function addRuleRow(data) {
   document.getElementById("rules-rows").appendChild(div);
 }
 
+function addTargetRow(data) {
+  data = data || {};
+  var div = document.createElement("div");
+  div.style.cssText = "display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f5f0;";
+  var typeColor = data.type === 'rotation' ? '#888780' : '#185FA5';
+  var typeBadge = data.type === 'rotation' ? 'Rotation' : 'Anchor';
+  div.innerHTML =
+    '<span style="font-size:10px;background:' + typeColor + ';color:white;border-radius:3px;padding:1px 6px;flex-shrink:0;">' + typeBadge + '</span>' +
+    '<input type="text" placeholder="Company name..." data-key="target-name" style="flex:1;border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" oninput="saveDeskState()" value="' + (data.name||'') + '">' +
+    '<input type="text" placeholder="Notes / contact..." data-key="target-note" style="flex:2;border:none;font-size:12px;font-family:Arial;color:#888780;background:transparent;outline:none;" oninput="saveDeskState()" value="' + (data.note||'') + '">' +
+    '<select data-key="target-type" style="border:none;font-size:11px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" onchange="saveDeskState();this.closest(\'div\').querySelector(\'span\').textContent=this.value===\'rotation\'?\'Rotation\':\'Anchor\';this.closest(\'div\').querySelector(\'span\').style.background=this.value===\'rotation\'?\'#888780\':\'#185FA5\';">' +
+    '<option value="anchor"' + (data.type!=='rotation'?' selected':'') + '>Anchor</option>' +
+    '<option value="rotation"' + (data.type==='rotation'?' selected':'') + '>Rotation</option>' +
+    '</select>' +
+    '<button onclick="this.parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;">×</button>';
+  document.getElementById("target-rows").appendChild(div);
+}
+
 // ---- LEGACY STUBS (keep for EOD parser compatibility) ----
 function addSearchRow(data) {}
 function addLeadOppRow(data) {}
@@ -1883,7 +1932,7 @@ function addLeadOppRow(data) {}
 // ---- SAVE / LOAD ----
 function saveDeskState() {
   try {
-    var desk = { reqs: [], topLeads: [], hotCandidates: [], rules: [] };
+    var desk = { reqs: [], topLeads: [], targets: [], hotCandidates: [], rules: [] };
     document.querySelectorAll("#req-blocks .req-block").forEach(function(block) {
       var req = {};
       block.querySelectorAll("[data-key]").forEach(function(el){
@@ -1901,6 +1950,13 @@ function saveDeskState() {
     });
     document.querySelectorAll("#top-leads-rows > div").forEach(function(row) {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); desk.topLeads.push(obj);
+    });
+    document.querySelectorAll("#target-rows > div").forEach(function(row) {
+      var obj = {};
+      row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; });
+      var sel = row.querySelector("select[data-key='target-type']");
+      if (sel) obj.type = sel.value;
+      if (obj["target-name"]) desk.targets.push({name: obj["target-name"]||"", note: obj["target-note"]||"", type: obj.type||"anchor"});
     });
     document.querySelectorAll("#hot-candidate-rows > div").forEach(function(row) {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); desk.hotCandidates.push(obj);
@@ -1922,6 +1978,7 @@ function loadDeskState() {
   // Always clear first to avoid duplicates
   document.getElementById("req-blocks").innerHTML = "";
   document.getElementById("top-leads-rows").innerHTML = "";
+  document.getElementById("target-rows").innerHTML = "";
   document.getElementById("hot-candidate-rows").innerHTML = "";
   document.getElementById("rules-rows").innerHTML = "";
   try {
@@ -1931,6 +1988,7 @@ function loadDeskState() {
     if (desk.reqs && desk.reqs.length > 0) {
       desk.reqs.forEach(function(d){ addReqBlock(d); });
       (desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
+      (desk.targets||[]).forEach(function(d){ addTargetRow(d); });
       (desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
       (desk.rules||[]).forEach(function(d){ addRuleRow(d); });
     } else {
@@ -1943,36 +2001,56 @@ function loadDeskState() {
 }
 
 function loadDefaultDeskState() {
-  // Your actual desk data as of 5/5/2026 - restored from OneDrive
+  // Updated 5/28/2026
   addReqBlock({
     "req-title": "National Supply Chain Director",
     "req-client": "David Weekley Homes",
     "req-hm": "John Schiegg",
     candidates: [
-      {"cand-name":"Jeff Van Sant","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Await John confirmation on Houston visit and case study coordination. Follow up with Jeff once confirmed."},
-      {"cand-name":"Reid Haynie","cand-stage":"On Hold","cand-touch":"5/1","cand-next":"Talk to John before any outreach. Reid may be being exited."},
-      {"cand-name":"Stephen Applewhite","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Follow up in 5 days if no response. Confirm Weekley national group outreach per Chad Durham."},
-      {"cand-name":"Andrew Foote","cand-stage":"Contacting","cand-touch":"4/29","cand-next":"Monitor outside interview. Light touch check in next week."},
-      {"cand-name":"Mike Demboski","cand-stage":"Contacting","cand-touch":"5/1","cand-next":"Get resume. Review and submit to John if strong."}
+      {"cand-name":"Jeff Van Sant","cand-stage":"Contacting","cand-touch":"5/28","cand-next":"Regional directors meeting with him this week. John says if visits go well he plans to move forward. Watson Glazer complete. Comp $225K base, 50% bonus, open to Houston relo. Await John confirmation."},
+      {"cand-name":"Mike Demboski","cand-stage":"Submitted","cand-touch":"5/28","cand-next":"Introduced to John today. Pulte trained, National Purchasing Director at Thomas James Homes. John responded — wants to set up a call. Call Mike at 949-254-2755, get resume, set up call with John."},
+      {"cand-name":"Reid Haynie","cand-stage":"On Hold","cand-touch":"5/15","cand-next":"Told him Houston off the table. John may reach out directly. Reid receptive, would welcome conversation. No action needed — ball in John's court."},
+      {"cand-name":"Andrew Foote","cand-stage":"Not a Fit","cand-touch":"4/29","cand-next":"Met with John. Weekley likes him but not for Supply Chain Director. Call Andrew — understand where his head is, explore other fits."},
+      {"cand-name":"Stephen Applewhite","cand-stage":"Not a Fit","cand-touch":"5/28","cand-next":"Withdrew. Accepted VP Supply Chain at Evergreen Residential in Dallas. BTR maintenance, secured big contract. Good relationship. Follow up in one month."}
     ]
   });
   addReqBlock({
     "req-title": "Purchasing Agent - Charleston",
     "req-client": "David Weekley Homes",
-    "req-hm": "TBD (likely Bryan Booth DP or PM)",
+    "req-hm": "TBD — Crislyn Coan (TA)",
     candidates: [
-      {"cand-name":"Inbound from Crislyn Coan (TA). Outside scope of Supply Chain engagement - contingent opportunity.","cand-stage":"Contacting","cand-touch":"","cand-next":"Get JD from Crislyn. Confirm HM. Clarify fee/process."}
+      {"cand-name":"Stalled on agreement","cand-stage":"On Hold","cand-touch":"5/14","cand-next":"New agreement needed since Robert Heffner gone. Fee at 20% confirmed. No JD yet, no HM confirmed. Call Crislyn Coan today — 2 weeks of silence."}
     ]
   });
   [
-    {"tl-lead":"Forestar - Phoenix Region VP","tl-status":"Hot — req likely","tl-next":"Kelly Foster call - prep and execute. Jeff Pape interim covering Phoenix. 3 internal candidates plus local known commodity."},
-    {"tl-lead":"Pulte LAM - Ryan Cole","tl-status":"Hot — req likely","tl-next":"Await response to email sent 5/1. Follow up in 10 days if nothing."},
-    {"tl-lead":"Faircroft - Purchasing Backfill","tl-status":"Hot — req likely","tl-next":"Follow up with Gareth Bracken. William Oertl left for Century Homes VP role - purchasing vacancy confirmed via Andrew Foote."},
-    {"tl-lead":"Ashton Woods - LD","tl-status":"Hot — req likely","tl-next":"Find Jeremy Ramsdell contact info or reach Scott Moore DP directly."},
-    {"tl-lead":"ICI Homes - Daytona Land","tl-status":"Hot — req likely","tl-next":"Follow up with Ryan Khan. Clarify Florida land scope."}
+    {"tl-lead":"David Weekley Purchasing Agent — Charleston","tl-status":"Close to signing","tl-next":"Agreement stalled with Crislyn Coan. Call today — 2 weeks of silence is too long."}
   ].forEach(function(d){ addTopLeadRow(d); });
-  addHotCandidateRow({});
   [
+    {name:"David Weekley Homes", note:"10yr relationship, 30+ placements. John Schiegg HM.", type:"anchor"},
+    {name:"Pulte Group", note:"10yr land relationship. Ryan Cole LAM.", type:"anchor"},
+    {name:"Forestar", note:"Kelly Foster PNW. Bill Dycus former.", type:"anchor"},
+    {name:"Dream Finders Homes", note:"", type:"anchor"},
+    {name:"Stanley Martin", note:"", type:"anchor"},
+    {name:"Risewell Homes", note:"Megan Nelson purchasing contact.", type:"anchor"},
+    {name:"Sekisui House", note:"Carl Hayden former.", type:"anchor"},
+    {name:"M/I Homes", note:"", type:"anchor"},
+    {name:"Mattamy Homes", note:"Contract recruiting history.", type:"anchor"},
+    {name:"Davidson Homes", note:"Jennifer Ramey HR. Growing in Houston.", type:"anchor"}
+  ].forEach(function(d){ addTargetRow(d); });
+  [
+    {"hc-name":"Andrew Foote","hc-role":"Purchasing","hc-location":"Houston","hc-pitch":"Century Homes background"},
+    {"hc-name":"Reid Haynie","hc-role":"Purchasing","hc-location":"Atlanta","hc-pitch":"Pulte background"},
+    {"hc-name":"Sean Terrell","hc-role":"Ops Leader","hc-location":"Phoenix","hc-pitch":"Shawood"},
+    {"hc-name":"Mike Hifler","hc-role":"Purchasing","hc-location":"Denver","hc-pitch":"Pulte background"},
+    {"hc-name":"Brian Frame","hc-role":"Land","hc-location":"Phoenix","hc-pitch":"HRD Consulting"},
+    {"hc-name":"Bill Dycus","hc-role":"Land","hc-location":"Tucson","hc-pitch":"Forestar background"},
+    {"hc-name":"Andie Hemmah","hc-role":"Land","hc-location":"Tucson","hc-pitch":"AMH background"},
+    {"hc-name":"Cano Ornelas","hc-role":"Land","hc-location":"Tucson","hc-pitch":"AMH background"},
+    {"hc-name":"Mike Lewis","hc-role":"Purchasing Director","hc-location":"Tampa","hc-pitch":"Ashton Woods"},
+    {"hc-name":"Megan Nelson","hc-role":"Purchasing Director","hc-location":"Houston","hc-pitch":"Risewell"}
+  ].forEach(function(d){ addHotCandidateRow(d); });
+  [
+    {text:"ANCHOR TARGETS: David Weekley, Pulte, Forestar, Dream Finders, Stanley Martin, Risewell, Sekisui, M/I Homes, Mattamy, Davidson"},
     {text:"No new verticals until homebuilding hits $250K"},
     {text:"3 activation contacts every day - email, call, or LinkedIn - non-negotiable"},
     {text:"One signed engagement per month - if pipeline is thin everything stops until fixed"},
@@ -3849,15 +3927,17 @@ async function loadDeskFromOneDrive() {
 
       // OLD FORMAT: data.content with ||| separator — raw innerHTML, broken. Ignore it.
       // Only load if it is the new JSON format (data.desk with reqs array)
-      if (data && data.desk && Array.isArray(data.desk.reqs) && data.desk.reqs.length > 0) {
+      if (data && data.desk && (Array.isArray(data.desk.reqs) && data.desk.reqs.length > 0 || Array.isArray(data.desk.hotCandidates) && data.desk.hotCandidates.length > 0)) {
         // Clear current rendered content
         document.getElementById('req-blocks').innerHTML = '';
         document.getElementById('top-leads-rows').innerHTML = '';
+        document.getElementById('target-rows').innerHTML = '';
         document.getElementById('hot-candidate-rows').innerHTML = '';
         document.getElementById('rules-rows').innerHTML = '';
         // Re-render using the proper builder functions
         data.desk.reqs.forEach(function(d){ addReqBlock(d); });
         (data.desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
+        (data.desk.targets||[]).forEach(function(d){ addTargetRow(d); });
         (data.desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
         (data.desk.rules||[]).forEach(function(d){ addRuleRow(d); });
         // Also update localStorage so next load is instant
