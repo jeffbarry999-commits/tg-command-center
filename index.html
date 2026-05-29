@@ -4606,7 +4606,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize
 loadIntelCache();
 renderScoreboard();
-loadDeskState();
+// Clear any corrupted desk data and load fresh default
+localStorage.removeItem('tg_desk');
+loadDefaultDeskState();
 initMSAL();
 </script>
 </html>
