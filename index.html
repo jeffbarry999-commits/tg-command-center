@@ -256,6 +256,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <button class="nav-btn" onclick="switchTab('dailyplan',this)">Daily Plan</button>
   <button class="nav-btn" onclick="switchTab('daily',this)">Daily Capture</button>
   <button class="nav-btn" onclick="switchTab('intel',this)">Intelligence</button>
+  <button class="nav-btn" onclick="switchTab('revenue',this)" style="color:#1D9E75;">Revenue</button>
   <button class="nav-btn" onclick="switchTab('plan',this)">Week Plan</button>
   <button class="nav-btn" onclick="switchTab('weekly',this)">Weekly View</button>
   <button class="nav-btn" onclick="switchTab('archive',this)">Archive</button>
@@ -2158,6 +2159,91 @@ function renderWeeklySection(id, items, formatter) {
   el.innerHTML = items.map(function(i){ return '<div class="weekly-item"><span style="font-size:11px;color:#888780;">'+i.time+'</span> '+formatter(i)+(i.notes?'<div style="color:#5f5e5a;margin-top:3px;font-size:11px;">'+i.notes.substring(0,120)+"</div>":"")+"</div>"; }).join("");
 }
 
+// ============================================================
+// WEEKLY GOAL TRACKER (WGT) — pulls real per-day metrics from
+// the Close Day archive (tg_archive), Mon-Fri of the current week.
+// Target column is user-editable and persisted, never guessed.
+// ============================================================
+var WGT_GOALS = [
+  {key: "bd", label: "BD Conversations"},
+  {key: "screens", label: "Candidates Screened"},
+  {key: "submittals", label: "Submittals"},
+  {key: "interviews", label: "Interviews Scheduled"}
+];
+
+function getWGTWeekDates() {
+  var now = new Date();
+  var day = now.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+  var mondayOffset = day === 0 ? -6 : 1 - day;
+  var monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  var dates = [];
+  for (var i = 0; i < 5; i++) {
+    var d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    dates.push(d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate());
+  }
+  return dates; // [Mon, Tue, Wed, Thu, Fri] as todayKey-format strings
+}
+
+function getWGTTargets() {
+  try { return JSON.parse(localStorage.getItem("tg_wgt_targets") || "{}"); } catch(e) { return {}; }
+}
+function saveWGTTarget(key, val) {
+  var t = getWGTTargets();
+  t[key] = val;
+  localStorage.setItem("tg_wgt_targets", JSON.stringify(t));
+}
+
+function buildWGT() {
+  var body = document.getElementById("wgt-body");
+  if (!body) return;
+
+  var archive = [];
+  try { archive = JSON.parse(localStorage.getItem("tg_archive") || "[]"); } catch(e) { archive = []; }
+
+  var weekDates = getWGTWeekDates();
+  var targets = getWGTTargets();
+
+  // Map date -> metrics, from archive (fall back to today's live `log` if today isn't archived yet)
+  var dayMetrics = {};
+  weekDates.forEach(function(dk){ dayMetrics[dk] = null; });
+  archive.forEach(function(entry){
+    if (weekDates.indexOf(entry.date) > -1) dayMetrics[entry.date] = entry.metrics;
+  });
+  // If today hasn't been closed yet, compute today's live counts from `log` so today's column isn't blank
+  if (typeof log !== "undefined" && todayKey && weekDates.indexOf(todayKey) > -1 && !dayMetrics[todayKey]) {
+    dayMetrics[todayKey] = {
+      bd: log.filter(function(i){return i.purpose==="Client" && ["BD Intro","BD Follow Up","BD Meeting","BD Networking","Account Maintenance"].indexOf(i.activity)>-1;}).length,
+      screens: log.filter(function(i){return i.activity==="Screening";}).length,
+      submittals: log.filter(function(i){return i.activity==="Submittal";}).length,
+      interviews: log.filter(function(i){return i.activity==="Interview Scheduled";}).length
+    };
+  }
+
+  var html = "";
+  WGT_GOALS.forEach(function(goal){
+    var total = 0;
+    var dayCells = weekDates.map(function(dk){
+      var m = dayMetrics[dk];
+      var v = m ? (m[goal.key] || 0) : null;
+      if (v !== null) total += v;
+      var display = v === null ? "&mdash;" : v;
+      return "<td style='padding:7px;text-align:center;border-bottom:1px solid #f1efe8;'>"+display+"</td>";
+    }).join("");
+    var targetVal = targets[goal.key] !== undefined ? targets[goal.key] : "";
+    html += "<tr>";
+    html += "<td style='padding:7px 10px;border-bottom:1px solid #f1efe8;'>"+goal.label+"</td>";
+    html += "<td style='padding:4px;text-align:center;border-bottom:1px solid #f1efe8;'>"+
+      "<input type='number' value='"+targetVal+"' onchange='saveWGTTarget(\""+goal.key+"\", this.value); buildWGT();' "+
+      "style='width:44px;text-align:center;padding:4px;border:1px solid #e0e0d8;border-radius:5px;font-size:12px;'></td>";
+    html += dayCells;
+    html += "<td style='padding:7px;text-align:center;font-weight:700;color:#1D9E75;border-bottom:1px solid #f1efe8;'>"+total+"</td>";
+    html += "</tr>";
+  });
+  body.innerHTML = html;
+}
+
 function buildWeeklySummary() {
   var bds = weeklyLog.filter(function(i){ return i.purpose==="BD"; });
   var screens = weeklyLog.filter(function(i){ return i.purpose==="Recruiting" && i.activity==="Screening Call"; });
@@ -2222,6 +2308,7 @@ function switchTab(tabId, btn) {
   if (tabId === "weekly") { renderWeekly(); buildWGT(); }
   if (tabId === "archive") { renderArchive(); loadPlanArchive(); loadWeekPlanArchive(); }
   if (tabId === "intel") { populateIntelDropdowns(); renderIntel(); renderIntelStats(); }
+  if (tabId === "revenue") { renderRevenue(); }
 }
 
 // ============================================================
@@ -3456,6 +3543,66 @@ function switchIntelView(view) {
 </div>
 </div>
 
+<!-- REVENUE TAB -->
+<div id="tab-revenue" class="tab-pane">
+<div class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:16px;font-weight:bold;">Revenue &amp; Draw Tracking</div>
+      <div id="rev-sync-label" style="font-size:11px;color:#888780;margin-top:2px;">Loading...</div>
+    </div>
+  </div>
+
+  <!-- VIEW SWITCHER -->
+  <div style="display:flex;gap:4px;margin-bottom:12px;background:#f1efe8;border-radius:8px;padding:3px;width:fit-content;">
+    <button class="btn rev-vbtn" id="rev-vbtn-targets" style="font-size:11px;background:white;border:1px solid #e0e0d8;padding:5px 12px;" onclick="switchRevView('targets')">Targets</button>
+    <button class="btn rev-vbtn" id="rev-vbtn-log" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchRevView('log')">Weekly Log</button>
+    <button class="btn rev-vbtn" id="rev-vbtn-placements" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchRevView('placements')">Placements</button>
+    <button class="btn rev-vbtn" id="rev-vbtn-draw" style="font-size:11px;background:transparent;padding:5px 12px;" onclick="switchRevView('draw')">Draw Summary</button>
+  </div>
+
+  <div class="stats" id="rev-stats" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;"></div>
+
+  <!-- TARGETS VIEW -->
+  <div id="rev-view-targets" class="rev-view">
+    <div class="card" style="padding:14px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Month 10 Target Assumptions</div>
+      <div id="rev-targets-form" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+      <button class="btn btn-green" style="font-size:11px;margin-top:10px;" onclick="saveRevTargets()">Save Targets</button>
+    </div>
+  </div>
+
+  <!-- WEEKLY LOG VIEW -->
+  <div id="rev-view-log" class="rev-view" style="display:none;">
+    <div class="card" style="padding:14px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Log This Week</div>
+      <div id="rev-log-form" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+      <div style="margin-top:8px;"><label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;">Notes</label>
+        <textarea id="rl-notes" class="notes-area" style="min-height:50px;"></textarea></div>
+      <button class="btn btn-green" style="font-size:11px;margin-top:10px;" onclick="addRevLog()">+ Log Entry</button>
+    </div>
+    <div id="rev-log-list"></div>
+  </div>
+
+  <!-- PLACEMENTS VIEW -->
+  <div id="rev-view-placements" class="rev-view" style="display:none;">
+    <div class="card" style="padding:14px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Log a Placement</div>
+      <div id="rev-placement-form" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+      <button class="btn btn-green" style="font-size:11px;margin-top:10px;" onclick="addPlacement()">+ Log Placement</button>
+    </div>
+    <div id="rev-placement-list"></div>
+  </div>
+
+  <!-- DRAW SUMMARY VIEW -->
+  <div id="rev-view-draw" class="rev-view" style="display:none;">
+    <div style="font-size:12px;color:#888780;margin-bottom:10px;">Auto-calculated from Placements above. Formula per LOI 4.4: revenue splits 50/50 first, each party contributes half their own share to the draw balance, capped at what's currently owed.</div>
+    <div id="rev-draw-table"></div>
+  </div>
+
+</div>
+</div>
+
 <!-- CLAUDE TAB -->
 <div id="tab-claude" class="tab-pane">
 <div class="page" style="max-width:900px;">
@@ -3819,6 +3966,7 @@ function initMSAL() {
         msAccount = result.account;
         showMSConnected(msAccount.name || msAccount.username);
         loadIntelFromOneDrive();
+        loadRevenueFromOneDrive();
         loadDeskFromOneDrive();
         loadEODArchiveFromOneDrive();
         loadScoreboardFromOneDrive();
@@ -3830,6 +3978,7 @@ function initMSAL() {
         msAccount = accounts[0];
         showMSConnected(msAccount.name || msAccount.username);
         loadIntelFromOneDrive();
+        loadRevenueFromOneDrive();
         loadDeskFromOneDrive();
         loadEODArchiveFromOneDrive();
         loadScoreboardFromOneDrive();
@@ -3914,6 +4063,308 @@ async function loadIntelFromOneDrive() {
 function intelSave() {
   localStorage.setItem('TG_INTEL_CACHE', JSON.stringify(intelDB));
   saveIntelToOneDrive();
+}
+
+// ============================================================
+// ONEDRIVE — REVENUE & DRAW TRACKING
+// ============================================================
+var MS_REVENUE_PATH = '/me/drive/root:/TG Command Center/TG_Revenue.json:/content';
+var REV_DEFAULT_TARGETS = {revenue10:80000, contractors10:15, dp10:6, accounts10:10, draw:50000};
+var revenueDB = {targets: Object.assign({}, REV_DEFAULT_TARGETS), log: [], placements: []};
+var revCurrentView = 'targets';
+
+function uidRev(){ return "R"+Date.now()+Math.random().toString(36).slice(2,6); }
+function escRev(s){ return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function gvRev(id){ var e=document.getElementById(id); return e ? e.value.trim() : ""; }
+
+async function saveRevenueToOneDrive() {
+  var token = await getMSToken();
+  if (!token) return;
+  try {
+    await fetch('https://graph.microsoft.com/v1.0' + MS_REVENUE_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(revenueDB, null, 2)
+    });
+  } catch(e) { console.log('Revenue save error:', e.message); }
+}
+
+async function loadRevenueFromOneDrive() {
+  var syncLabel = document.getElementById('rev-sync-label');
+  if (syncLabel) syncLabel.textContent = 'Loading from OneDrive...';
+  var token = await getMSToken();
+  if (!token) { if (syncLabel) syncLabel.textContent = 'Not connected'; return; }
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0' + MS_REVENUE_PATH, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      if (data && typeof data === 'object') {
+        revenueDB.targets = data.targets || Object.assign({}, REV_DEFAULT_TARGETS);
+        revenueDB.log = data.log || [];
+        revenueDB.placements = data.placements || [];
+        localStorage.setItem('TG_REVENUE_CACHE', JSON.stringify(revenueDB));
+        if (syncLabel) syncLabel.textContent = revenueDB.log.length + ' log entries, ' + revenueDB.placements.length + ' placements loaded from OneDrive';
+        renderRevenue();
+        return;
+      }
+    }
+  } catch(e) { console.log('Revenue load error:', e.message); }
+  try {
+    var cache = localStorage.getItem('TG_REVENUE_CACHE');
+    if (cache) { revenueDB = JSON.parse(cache); if (syncLabel) syncLabel.textContent = 'Loaded from cache'; renderRevenue(); }
+  } catch(e) {}
+}
+
+function revSave() {
+  localStorage.setItem('TG_REVENUE_CACHE', JSON.stringify(revenueDB));
+  saveRevenueToOneDrive();
+}
+
+// ---- FIELD HELPER ----
+var REV_LBL = "font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888780;display:block;margin-bottom:4px;";
+var REV_INP = "width:100%;padding:8px 10px;border:1px solid #e0e0d8;border-radius:7px;font-size:13px;font-family:inherit;";
+function revFld(label, id, type, placeholder) {
+  type = type || 'text';
+  return '<div><label style="'+REV_LBL+'">'+label+'</label><input type="'+type+'" id="'+id+'" style="'+REV_INP+'" placeholder="'+(placeholder||'')+'"></div>';
+}
+function revSelFld(label, id, options) {
+  var opts = options.map(function(o){return '<option>'+o+'</option>';}).join('');
+  return '<div><label style="'+REV_LBL+'">'+label+'</label><select id="'+id+'" style="'+REV_INP+'">'+opts+'</select></div>';
+}
+
+// ---- VIEW SWITCHING ----
+function switchRevView(view) {
+  revCurrentView = view;
+  ['targets','log','placements','draw'].forEach(function(v){
+    var el = document.getElementById('rev-view-'+v);
+    if (el) el.style.display = (v===view) ? 'block' : 'none';
+    var btn = document.getElementById('rev-vbtn-'+v);
+    if (btn) btn.style.background = (v===view) ? 'white' : 'transparent';
+  });
+  renderRevenue();
+}
+
+// ---- TARGETS ----
+function renderRevTargetsForm() {
+  var f = document.getElementById('rev-targets-form');
+  if (!f) return;
+  f.innerHTML =
+    revFld('Combined Revenue Run Rate ($/mo)','rt-revenue','number') +
+    revFld('Total Contractors','rt-contractors','number') +
+    revFld('Cumulative DP Placements','rt-dp','number') +
+    revFld('Active Accounts','rt-accounts','number') +
+    revFld('Draw Balance ($)','rt-draw','number');
+  var t = revenueDB.targets || REV_DEFAULT_TARGETS;
+  document.getElementById('rt-revenue').value = t.revenue10;
+  document.getElementById('rt-contractors').value = t.contractors10;
+  document.getElementById('rt-dp').value = t.dp10;
+  document.getElementById('rt-accounts').value = t.accounts10;
+  document.getElementById('rt-draw').value = t.draw;
+}
+function saveRevTargets() {
+  revenueDB.targets = {
+    revenue10: Number(gvRev('rt-revenue'))||0,
+    contractors10: Number(gvRev('rt-contractors'))||0,
+    dp10: Number(gvRev('rt-dp'))||0,
+    accounts10: Number(gvRev('rt-accounts'))||0,
+    draw: Number(gvRev('rt-draw'))||0
+  };
+  revSave();
+  renderRevenue();
+}
+
+// ---- WEEKLY LOG ----
+function renderRevLogForm() {
+  var f = document.getElementById('rev-log-form');
+  if (!f) return;
+  f.innerHTML =
+    revFld('Week / Month #','rl-period','text','e.g. Month 2, Week 6') +
+    revFld('Date','rl-date','date') +
+    revFld('BD Conversations','rl-bd','number') +
+    revFld('Candidates Screened','rl-screens','number') +
+    revFld('Submittals','rl-submittals','number') +
+    revFld('Networking Events','rl-events','number') +
+    revFld('Face-to-Face Meetings','rl-f2f','number');
+}
+function addRevLog() {
+  var entry = {
+    id: uidRev(),
+    period: gvRev('rl-period'),
+    date: gvRev('rl-date') || new Date().toISOString().slice(0,10),
+    bd: Number(gvRev('rl-bd'))||0,
+    screens: Number(gvRev('rl-screens'))||0,
+    submittals: Number(gvRev('rl-submittals'))||0,
+    events: Number(gvRev('rl-events'))||0,
+    f2f: Number(gvRev('rl-f2f'))||0,
+    notes: gvRev('rl-notes')
+  };
+  revenueDB.log.push(entry);
+  revSave();
+  ['rl-period','rl-bd','rl-screens','rl-submittals','rl-events','rl-f2f'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var notesEl = document.getElementById('rl-notes'); if (notesEl) notesEl.value='';
+  renderRevenue();
+}
+function delRevLog(id) {
+  if (!confirm('Delete this entry?')) return;
+  revenueDB.log = revenueDB.log.filter(function(m){return m.id!==id;});
+  revSave();
+  renderRevenue();
+}
+function renderRevLogList() {
+  var list = document.getElementById('rev-log-list');
+  if (!list) return;
+  if (!revenueDB.log.length) {
+    list.innerHTML = "<div style='color:#888780;font-size:13px;padding:20px;text-align:center;'>No entries logged yet.</div>";
+    return;
+  }
+  var html = '';
+  revenueDB.log.slice().reverse().forEach(function(m){
+    html += "<div class='card' style='padding:10px 12px;margin-bottom:8px;'>";
+    html += "<div style='display:flex;justify-content:space-between;align-items:start;'>";
+    html += "<div><b>"+escRev(m.period||'Entry')+"</b> <span style='color:#888780;font-size:12px;'>&mdash; "+m.date+"</span></div>";
+    html += "<button style='background:none;border:none;color:#E24B4A;cursor:pointer;font-size:16px;' onclick='delRevLog(\""+m.id+"\")'>&#x00D7;</button>";
+    html += "</div><div style='font-size:12px;color:#555;margin-top:6px;'>";
+    html += "BD "+m.bd+" &middot; Screens "+m.screens+" &middot; Submittals "+m.submittals+" &middot; Events "+m.events+" &middot; F2F "+m.f2f;
+    html += "</div>";
+    if (m.notes) html += "<div style='font-size:12px;color:#888780;margin-top:6px;'>"+escRev(m.notes)+"</div>";
+    html += "</div>";
+  });
+  list.innerHTML = html;
+}
+
+// ---- PLACEMENTS ----
+function renderRevPlacementForm() {
+  var f = document.getElementById('rev-placement-form');
+  if (!f) return;
+  f.innerHTML =
+    revSelFld('Type','rp-type',['DP','Contractor']) +
+    revFld('Client','rp-client') +
+    revFld('Candidate / Role','rp-name') +
+    revFld('Month # (1-10)','rp-month','number') +
+    revFld('Net Spread Revenue ($)','rp-amount','number') +
+    revFld('Date','rp-date','date');
+}
+function addPlacement() {
+  var p = {
+    id: uidRev(),
+    type: gvRev('rp-type') || 'DP',
+    client: gvRev('rp-client'),
+    name: gvRev('rp-name'),
+    month: Number(gvRev('rp-month'))||1,
+    amount: Number(gvRev('rp-amount'))||0,
+    date: gvRev('rp-date') || new Date().toISOString().slice(0,10)
+  };
+  revenueDB.placements.push(p);
+  revSave();
+  ['rp-client','rp-name','rp-month','rp-amount'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  renderRevenue();
+}
+function delPlacement(id) {
+  if (!confirm('Delete this placement?')) return;
+  revenueDB.placements = revenueDB.placements.filter(function(p){return p.id!==id;});
+  revSave();
+  renderRevenue();
+}
+function renderRevPlacementList() {
+  var list = document.getElementById('rev-placement-list');
+  if (!list) return;
+  if (!revenueDB.placements.length) {
+    list.innerHTML = "<div style='color:#888780;font-size:13px;padding:20px;text-align:center;'>No placements logged yet.</div>";
+    return;
+  }
+  var html = '';
+  revenueDB.placements.slice().reverse().forEach(function(p){
+    html += "<div class='card' style='padding:10px 12px;margin-bottom:8px;'>";
+    html += "<div style='display:flex;justify-content:space-between;align-items:start;'>";
+    html += "<div><b>"+escRev(p.client||'')+"</b> <span style='color:#888780;font-size:12px;'>&mdash; "+escRev(p.name||'')+"</span></div>";
+    html += "<button style='background:none;border:none;color:#E24B4A;cursor:pointer;font-size:16px;' onclick='delPlacement(\""+p.id+"\")'>&#x00D7;</button>";
+    html += "</div><div style='font-size:12px;color:#555;margin-top:6px;'>";
+    html += "<span style='background:"+(p.type==='DP'?'#eaf5ef':'#eaf1fb')+";padding:2px 8px;border-radius:10px;'>"+p.type+"</span> ";
+    html += "Month "+p.month+" &middot; $"+p.amount.toLocaleString()+" &middot; "+p.date;
+    html += "</div></div>";
+  });
+  list.innerHTML = html;
+}
+
+// ---- DRAW SUMMARY (auto-computed) ----
+function computeDrawSummary() {
+  var t = revenueDB.targets || REV_DEFAULT_TARGETS;
+  var rows = [];
+  var balance = t.draw;
+  var cumContribution = 0;
+  for (var m = 1; m <= 10; m++) {
+    var R = revenueDB.placements.filter(function(p){return p.month===m;}).reduce(function(s,p){return s+(p.amount||0);}, 0);
+    var balanceBefore = balance;
+    var combinedContribution = Math.min(R*0.5, balanceBefore);
+    var yourContribution = combinedContribution/2;
+    var yourGrossShare = R*0.5;
+    var netDue = yourGrossShare - yourContribution;
+    balance = balanceBefore - combinedContribution;
+    cumContribution += yourContribution;
+    rows.push({
+      month: m, revenue: R, balanceBefore: balanceBefore, combinedContribution: combinedContribution,
+      yourContribution: yourContribution, grossShare: yourGrossShare, netDue: netDue,
+      balanceAfter: balance, cumContribution: cumContribution, status: balance<=0 ? 'CLEARED' : 'OPEN'
+    });
+  }
+  return rows;
+}
+function renderRevDrawTable() {
+  var el = document.getElementById('rev-draw-table');
+  if (!el) return;
+  var rows = computeDrawSummary();
+  var html = "<div style='overflow-x:auto;'><table style='width:100%;border-collapse:collapse;font-size:12px;'>";
+  html += "<tr style='background:#2C2C2A;color:white;'>";
+  ["Month","Revenue","Balance Before","Combined Contrib.","Your Contrib.","Gross Share","Net Due","Balance After","Status"].forEach(function(h){
+    html += "<th style='padding:6px 8px;text-align:left;'>"+h+"</th>";
+  });
+  html += "</tr>";
+  rows.forEach(function(r){
+    html += "<tr style='border-bottom:1px solid #e0e0d8;'>";
+    html += "<td style='padding:6px 8px;'>"+r.month+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.revenue.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.balanceBefore.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.combinedContribution.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.yourContribution.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.grossShare.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;font-weight:600;'>$"+r.netDue.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;'>$"+r.balanceAfter.toLocaleString()+"</td>";
+    html += "<td style='padding:6px 8px;color:"+(r.status==='CLEARED'?'#1D9E75':'#888780')+";font-weight:600;'>"+r.status+"</td>";
+    html += "</tr>";
+  });
+  html += "</table></div>";
+  el.innerHTML = html;
+}
+
+// ---- STATS + MAIN RENDER ----
+function renderRevStats() {
+  var el = document.getElementById('rev-stats');
+  if (!el) return;
+  var t = revenueDB.targets || REV_DEFAULT_TARGETS;
+  var totalRevenue = revenueDB.placements.reduce(function(s,p){return s+(p.amount||0);}, 0);
+  var rows = computeDrawSummary();
+  var totalTakeHome = rows.reduce(function(s,r){return s+r.netDue;}, 0);
+  var data = [
+    {n:"$"+t.revenue10.toLocaleString(), l:"Target Run Rate/mo"},
+    {n:t.contractors10, l:"Target Contractors"},
+    {n:t.dp10, l:"Target DP"},
+    {n:t.accounts10, l:"Target Accounts"},
+    {n:"$"+totalRevenue.toLocaleString(), l:"Total Revenue Logged"},
+    {n:"$"+Math.round(totalTakeHome).toLocaleString(), l:"Your Take-Home (computed)"}
+  ];
+  el.innerHTML = data.map(function(s){
+    return "<div style='background:white;border:1px solid #e0e0d8;border-radius:8px;padding:10px 14px;min-width:110px;'>"+
+      "<div style='font-size:17px;font-weight:700;'>"+s.n+"</div><div style='font-size:11px;color:#888780;'>"+s.l+"</div></div>";
+  }).join('');
+}
+function renderRevenue() {
+  renderRevStats();
+  if (revCurrentView === 'targets') renderRevTargetsForm();
+  if (revCurrentView === 'log') { renderRevLogForm(); renderRevLogList(); }
+  if (revCurrentView === 'placements') { renderRevPlacementForm(); renderRevPlacementList(); }
+  if (revCurrentView === 'draw') renderRevDrawTable();
 }
 
 // ============================================================
