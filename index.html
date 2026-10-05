@@ -252,6 +252,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 
 <!-- NAV -->
 <div class="nav">
+  <button class="nav-btn" onclick="switchTab('process',this)" style="color:#BA7517;font-weight:bold;">Daily Process</button>
   <button class="nav-btn active" onclick="switchTab('desk',this)">My Desk</button>
   <button class="nav-btn" onclick="switchTab('targets',this)" style="color:#185FA5;">Targets</button>
   <button class="nav-btn" onclick="switchTab('dailyplan',this)">Daily Plan</button>
@@ -272,6 +273,59 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 <!-- ============================================================ -->
 <!-- TARGETS TAB (v15) -->
 <!-- ============================================================ -->
+<div id="tab-process" class="tab-pane">
+<div class="page" style="max-width:880px;">
+  <div style="font-size:18px;font-weight:bold;margin-bottom:2px;">Daily Process</div>
+  <div style="font-size:12px;color:#888780;margin-bottom:16px;">Plan at night, work the plan in the day. Start a fresh Claude thread each night. Continuity lives here, in OneDrive and in Recruit CRM, not in the thread.</div>
+
+  <div class="card" style="border-left:4px solid #185FA5;">
+    <div class="card-title" style="color:#185FA5;">1 · NIGHT — review the day and plan tomorrow (about 30 min)</div>
+    <div style="font-size:13px;line-height:1.7;">
+      <b>This is where Daily Capture gets analyzed and where we strategize.</b>
+      <ol style="margin:8px 0 8px 18px;padding:0;">
+        <li>Click <b>Close Day</b>. Copy the End of Day Review. It carries today's Capture log, your Daily Plan and your full My Desk with every target.</li>
+        <li>Open a <b>new Claude thread</b> and paste it.</li>
+        <li><b>Reflect.</b> Claude gives a short read on the day. You say what moved, what didn't, and anything you didn't write down.</li>
+        <li><b>Recruit CRM.</b> Claude lists the notes, tasks and new contacts it proposes. You approve or change them, and Claude enters only what you approve.</li>
+        <li><b>Plan tomorrow together, one bucket at a time:</b> Active reqs → Hot leads → Intelligence → Targets → Recruit CRM tasks. Every name comes with a reason and a source. You push back and add what you know. You agree on the plan.</li>
+        <li>Claude gives two blocks. Paste the <b>Intel block</b> into Intelligence. Paste the <b>My Desk block</b> into "Update My Desk." Tomorrow's plan appears at the top of My Desk.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card" style="border-left:4px solid #0F6E56;">
+    <div class="card-title" style="color:#0F6E56;">2 · MORNING — quick check, 5–10 min</div>
+    <div style="font-size:13px;line-height:1.7;">
+      Your plan is already on My Desk. Only check what came in overnight.
+      <ol style="margin:8px 0 8px 18px;padding:0;">
+        <li>Click <b>Copy Morning Check</b> and paste it into that same night thread (or a new one).</li>
+        <li>Claude reads your email, calendar and Recruit CRM tasks and tells you only what changes the plan. If nothing does, you go.</li>
+      </ol>
+      <button class="btn btn-blue" style="font-size:12px;" onclick="copyMorningKickoff()">Copy Morning Check</button>
+      <span id="mk-status" style="font-size:11px;color:#1D9E75;margin-left:8px;"></span>
+    </div>
+  </div>
+
+  <div class="card" style="border-left:4px solid #1D9E75;">
+    <div class="card-title" style="color:#1D9E75;">3 · DURING THE DAY — work the plan, capture everything, don't analyze</div>
+    <div style="font-size:13px;line-height:1.7;">
+      <ul style="margin:4px 0 4px 18px;padding:0;">
+        <li>Work <b>Today's Plan</b> at the top of My Desk.</li>
+        <li>Every call, email, InMail, tip, rumor, posting or article goes into <b>Daily Capture</b> as it happens. Rough is fine.</li>
+        <li>Fill in the company field so the entry shows up on that target's activity.</li>
+        <li>Reached someone at a target? On <b>Targets</b>, hit <b>Start sequence</b> or <b>Done</b> on their next step.</li>
+        <li>No analysis during the day. That happens at night.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="border-left:4px solid #888780;">
+    <div class="card-title" style="color:#5F5E5A;">FRIDAY NIGHT — weekly strategy, add 20 min</div>
+    <div style="font-size:13px;line-height:1.7;">At the end of the night review, say "weekly." Go over the target funnel, who moves up a stage, who's gone cold, contractor spread, and next week's priorities.</div>
+  </div>
+</div>
+</div>
+
 <div id="tab-targets" class="tab-pane">
 <div class="page">
   <div class="card">
@@ -306,6 +360,15 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
       <button class="btn btn-blue" style="font-size:11px;" onclick="copyDeskForClaude()">Copy for Claude</button>
       <button class="btn" style="font-size:11px;background:#0078D4;color:white;" onclick="downloadDeskForTomorrow()">Download for Tomorrow</button>
     </div>
+  </div>
+
+  <!-- THE PLAN -->
+  <div class="card" style="border-left:4px solid #185FA5;">
+    <div class="card-title" style="color:#185FA5;display:flex;justify-content:space-between;align-items:center;">
+      <span id="plan-title">Today's Plan</span>
+      <span id="plan-sub" style="font-weight:normal;font-size:11px;color:#888780;text-transform:none;letter-spacing:0;"></span>
+    </div>
+    <textarea id="plan-text" class="notes-area" style="min-height:120px;font-size:13px;line-height:1.6;" placeholder="Planned the night before with Claude. It lands here when you paste the night's My Desk block." oninput="saveDeskState()"></textarea>
   </div>
 
   <!-- UPDATE FROM CLAUDE -->
@@ -1403,27 +1466,19 @@ function endOfDay() {
     lines.push("");
   }
 
+  lines.push("CURRENT MY DESK:");
+  lines = lines.concat(buildDeskLines());
   lines.push("==================================================");
-  lines.push("EOD CLOSE OUT SEQUENCE — CLAUDE FOLLOW THIS EXACTLY.");
-  lines.push("DO NOT SKIP STEPS. WALK JEFF THROUGH ONE STEP AT A TIME.");
-  lines.push("WAIT FOR JEFF TO CONFIRM EACH STEP BEFORE MOVING TO THE NEXT.");
+  lines.push("NIGHT REVIEW + PLAN TOMORROW — CLAUDE, GO ONE STEP AT A TIME AND WAIT FOR JEFF AFTER EACH.");
   lines.push("==================================================");
-  lines.push("");
-  lines.push("STEP 1 — Give Jeff his eight things in order: Organized Summary, CRM Notes, Candidate Pipeline Update, BD Pipeline Update, Tomorrow's Needle Movers, Close Out Checklist, Updated My Desk block, Intelligence Block.");
-  lines.push("STEP 2 — After eight things, say: let's close out your day. First — go to the Intelligence tab in Command Center. Paste the Intelligence Block above into the paste box and click Save. Tell me when done.");
-  lines.push("STEP 3 — Wait for confirmation. Then say: open Recruit CRM and paste the CRM notes above into every contact that had activity today. Set tasks with due dates. Tell me when done.");
-  lines.push("STEP 4 — Wait for confirmation. Then say: go to My Desk tab in Command Center. Paste my full response into the Update My Desk box and click Update. Then click Download for Tomorrow. Tell me when done.");
-  lines.push("STEP 5 — Wait for confirmation. Then say: go to Daily Plan tab. Review your incomplete goals. Check which ones you want to carry to tomorrow. Then click Close Out Day. Tell me when done.");
-  lines.push("STEP 6 — Wait for confirmation. Then say: go to Week Plan tab if it is Friday — fill in your weekly reflection and click Close Out Week. If not Friday, skip this step.");
-  lines.push("STEP 7 — Wait for confirmation. Then say: click Close Day in the nav bar. Tomorrow is set up. See you in the morning.");
+  lines.push("STEP 1 — REFLECT. Short read of the day from the log below. Ask Jeff: what moved, what didn't, anything not written down. Wait.");
+  lines.push("STEP 2 — RECRUIT CRM. List every proposed note, task and new contact (check for existing companies first). Jeff approves or edits. Enter ONLY what he approves. Wait.");
+  lines.push("STEP 3 — PLAN TOMORROW TOGETHER. Read Recruit CRM tasks due tomorrow and overdue, and OneDrive TG Command Center/TG_Intelligence.json. Using the CURRENT MY DESK below, go one bucket at a time: Active reqs (what moves each search toward a placement), Hot leads (what moves each toward a req), Intelligence (any intel that gives a reason to call someone now), Targets (sequence steps due, no touch in 14+ days, funnel moves), Recruit CRM tasks. Every name gets a reason and a source. Do not just hand over a list. Wait after each bucket. Agree the final plan.");
+  lines.push("STEP 4 — Give two blocks: the My Desk block (item 7, changes only, ending with TOMORROW'S PLAN) and the Intelligence block (item 8).");
+  lines.push("STEP 5 — Jeff pastes the Intelligence block into the Intelligence tab and the My Desk block into Update My Desk. Done for the night.");
+  lines.push("Standing rules: outreach in Jeff's voice, casual, no flattery. 'Just checking back,' never 'circle back.' FCL employees are off-limits. Don't name Okland in outreach; say 'large regional GC.' Never reveal a candidate as the source of intel.");
   lines.push("==================================================");
   lines.push("");
-  lines.push("1. ORGANIZED SUMMARY of today");
-  lines.push("2. CRM NOTES — every contact that needs a note logged, formatted and ready to paste into Recruit CRM. Include deal stage where applicable (Lead 10%, Opportunity 25%, Contract/Fee 50%, Delivery 75%, Won 100%, Lost 0%).");
-  lines.push("3. CANDIDATE PIPELINE UPDATE — who moved, who stalled, your read");
-  lines.push("4. BD PIPELINE UPDATE — every thread touched, signal, next action");
-  lines.push("5. TOMORROW'S NEEDLE MOVERS — what cannot wait, one per bucket");
-  lines.push("6. CLOSE OUT CHECKLIST — step by step numbered list of every action I need to take right now to close out my day properly");
   lines.push("7. MY DESK CHANGES — list ONLY what changed today (the paste adds, updates or removes those items and leaves everything else alone). Use REMOVE: [name] to take something off and REMOVE REQ: [title] to close a req. Format:");
   lines.push("   ACTIVE SEARCHES:");
   lines.push("   REQ: [Req Title] | [Client] | HM: [Hiring Manager]");
@@ -1435,12 +1490,9 @@ function endOfDay() {
   lines.push("   · [Company] | Anchor or Rotation | Residential or Commercial | Stage: [stage] | Next: [next step] [YYYY-MM-DD] | Contacts: Name (Title); Name (Title)");
   lines.push("   HOT CANDIDATES TO MARKET:");
   lines.push("   · [Name] | [Role/Comp] | [Location] | [Who to call]");
-  lines.push("   TOMORROW'S SUGGESTED GOALS:");
-  lines.push("   RECRUITING: [suggestion based on what needs to move]");
-  lines.push("   DELIVERY: [suggestion based on active searches]");
-  lines.push("   BD: [suggestion based on open threads]");
-  lines.push("   ADMIN: [anything that needs to be logged or updated]");
-  lines.push("   PERSONAL: [blank — Jeff decides]");
+  lines.push("   TOMORROW'S PLAN:  (the plan Jeff and Claude agreed in Step 3)");
+  lines.push("   1. [Person / Company] — [call, email or LinkedIn] — [why, and the source] — [time if set]");
+  lines.push("   (one line per item, in the order Jeff should work them)");
   lines.push("   ---MY DESK BLOCK ENDS---");
   lines.push("");
   lines.push("8. INTELLIGENCE BLOCK — Read every capture log entry. Extract every gem — salary, comp, timing signals, relationship paths, hiring signals, layoffs, market moves, job postings, candidate reads. Format each as a structured entry using ---ENTRY--- as separator. Two entry types:");
@@ -1605,6 +1657,7 @@ function updateDeskFromClaude() {
     { k: "leads", re: /^(TOP 5 LEADS|TOP LEADS|HOT LEADS|LEADS)\b/i },
     { k: "targets", re: /^TARGETS\b/i },
     { k: "hc", re: /^HOT CANDIDATES\b/i },
+    { k: "plan", re: /^(TOMORROW'?S PLAN|TOMORROW’S PLAN|TODAY'?S PLAN|PLAN FOR TOMORROW)/i },
     { k: "skip", re: /^(KEY RULES|TOMORROW|SEPARATE WEEKLEY|SCOREBOARD|---MY DESK BLOCK ENDS---)/i }
   ];
   var sections = {}, cur = null, replace = {};
@@ -1615,6 +1668,7 @@ function updateDeskFromClaude() {
     if (h) { cur = h.k === "skip" ? null : h.k; if (cur) { sections[cur] = sections[cur] || []; if (/replace/i.test(t)) replace[cur] = true; } return; }
     if (cur) sections[cur].push(t);
   });
+  if (sections.plan !== undefined) { var _d = new Date(); if (/^TODAY/i.test(raw.match(/^(TOMORROW|TODAY)\S*\s+PLAN|PLAN FOR TOMORROW/im)?.[0]||"")) {} else _d.setDate(_d.getDate() + 1); desk.plan = { date: tgISO(_d), text: sections.plan.join("\n") }; }
   if (!Object.keys(sections).length) { alert("I couldn't find any My Desk sections in that paste (ACTIVE SEARCHES, TOP LEADS, TARGETS, HOT CANDIDATES). Nothing was changed."); return; }
 
   var added = 0, changed = 0, removed = 0;
@@ -1711,8 +1765,9 @@ function updateDeskFromClaude() {
   desk.topLeads.forEach(function(d){ addTopLeadRow(d); });
   desk.targets.forEach(function(d){ addTargetRow(d); });
   desk.hotCandidates.forEach(function(d){ addHotCandidateRow(d); });
-  var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]);
+  var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]); setPlanCard(desk.plan);
   desk.rules.forEach(function(d){ addRuleRow(d); });
+  setPlanCard(desk.plan);
   saveDeskState();
 
   var now = new Date();
@@ -1742,7 +1797,8 @@ function buildDeskLines() {
     var client = (block.querySelector("[data-key='req-client']")||{}).value||"";
     var hm = (block.querySelector("[data-key='req-hm']")||{}).value||"";
     if (title) {
-      lines.push("REQ: " + title + " | " + client + " | HM: " + hm);
+      var eng = (block.querySelector("[data-key='req-engine']")||{}).value||"no engine set";
+      lines.push("REQ: " + title + " | " + client + " | HM: " + hm + " | Engine: " + eng);
       block.querySelectorAll(".cand-rows > div").forEach(function(row) {
         var name = (row.querySelector("[data-key='cand-name']")||{}).value||"";
         var stage = (row.querySelector("[data-key='cand-stage']")||{}).value||"";
@@ -1765,6 +1821,24 @@ function buildDeskLines() {
   document.querySelectorAll("#hot-candidate-rows > div").forEach(function(row) {
     var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; });
     if (obj["hc-name"]) lines.push("· " + obj["hc-name"] + " | " + obj["hc-role"] + " | " + obj["hc-location"] + " | " + obj["hc-pitch"]);
+  });
+  lines.push("");
+  lines.push("CONTRACTORS ON ASSIGNMENT:");
+  var cts = 0;
+  document.querySelectorAll("#contractor-rows > div").forEach(function(row) {
+    var o = {}; row.querySelectorAll("[data-key]").forEach(function(el){ o[el.getAttribute("data-key")] = el.value; });
+    if (o["ct-name"]) { cts++; lines.push("· " + o["ct-name"] + " | " + o["ct-client"] + " | " + o["ct-role"] + " | Start " + o["ct-start"] + " | Pay $" + o["ct-pay"] + " | Bill $" + o["ct-bill"] + " | " + o["ct-status"]); }
+  });
+  if (!cts) lines.push("· none");
+  lines.push("");
+  lines.push("TARGETS (" + targetsDB.length + "):");
+  targetsDB.forEach(function(t) {
+    var p = [t.name, (t.type||"").replace(/^./, function(c){ return c.toUpperCase(); }), t.line || "", "Stage: " + (t.stage||"")];
+    if (t.next) p.push("Next: " + t.next + (t.nextDate ? " " + t.nextDate : ""));
+    var last = (t.activity||[]).map(function(a){ return a.date||""; }).sort().pop();
+    p.push("Last touch: " + (last || "none logged"));
+    if ((t.contacts||[]).length) p.push("Contacts: " + t.contacts.map(function(c){ var s = nextStep(c); return c.name + (c.title ? " (" + c.title + ")" : "") + (s ? " [seq: " + s.label + " due " + s.date + "]" : ""); }).join("; "));
+    lines.push("· " + p.join(" | "));
   });
   lines.push("");
   return lines;
@@ -1798,6 +1872,44 @@ function downloadDeskForTomorrow() {
   lines.push("CRM TASKS — paste below this line:");
   lines.push("");
   downloadFile(lines.join("\n"), "My Desk " + new Date().toLocaleDateString().replace(/\//g,"-") + ".txt");
+}
+
+function setPlanCard(p) {
+  var ta = document.getElementById("plan-text"); if (!ta) return;
+  p = p || {}; ta.value = p.text || ""; ta.setAttribute("data-date", p.date || "");
+  var today = tgISO(new Date()), t = document.getElementById("plan-title"), sub = document.getElementById("plan-sub");
+  if (!p.date || !p.text) { t.textContent = "Today's Plan"; sub.textContent = "Nothing planned yet"; }
+  else if (p.date === today) { t.textContent = "Today's Plan"; sub.textContent = "Planned last night"; }
+  else if (p.date > today) { t.textContent = "Tomorrow's Plan"; sub.textContent = "For " + p.date + " · set tonight"; }
+  else { t.textContent = "Last Plan (" + p.date + ")"; sub.textContent = "Old — make a new one tonight"; }
+}
+
+function copyMorningKickoff() {
+  var today = new Date();
+  var lines = ["MORNING CHECK — " + today.toLocaleDateString() + " (" + today.toLocaleDateString(undefined,{weekday:"long"}) + ")", ""];
+  lines.push("Claude: today's plan was made last night (TODAY'S PLAN below). This is a quick morning check, not a new plan.");
+  lines.push("1. Read my Outlook email since last night and today's calendar.");
+  lines.push("2. Read my Recruit CRM tasks due today and overdue.");
+  lines.push("3. Tell me ONLY what came in overnight that changes the plan: what to add, what to move, what to drop, and why. If nothing changes, say so and I'll go.");
+  lines.push("Standing rules: outreach in my voice, casual, no flattery. 'Just checking back,' never 'circle back.' FCL employees are off-limits. Don't name Okland in outreach; say 'large regional GC.' Never reveal a candidate as the source of intel. Nothing goes into Recruit CRM until I approve it.");
+  lines.push("", "==================================================", "");
+  var _pt = document.getElementById("plan-text");
+  lines.push("TODAY'S PLAN" + (_pt && _pt.getAttribute("data-date") ? " (set for " + _pt.getAttribute("data-date") + ")" : "") + ":");
+  lines.push(_pt && _pt.value.trim() ? _pt.value.trim() : "· nothing planned last night");
+  lines.push("");
+  lines = lines.concat(buildDeskLines());
+  var hist = captureHistory().filter(function(it){ return dayToISO(it._day) < tgISO(today); });
+  var lastDay = hist.map(function(it){ return dayToISO(it._day); }).sort().pop();
+  lines.push("LAST DAILY CAPTURE" + (lastDay ? " (" + lastDay + ")" : "") + ":");
+  var items = hist.filter(function(it){ return dayToISO(it._day) === lastDay; });
+  if (!items.length) lines.push("· nothing captured");
+  items.forEach(function(it){ lines.push("· " + [it.contactName, it.contactCompany, it.commType, it.activity, it.notes].filter(Boolean).join(" | ")); });
+  lines.push("");
+  var txt = lines.join("\n");
+  var done = function(){ var s = document.getElementById("mk-status"); if (s) s.textContent = "Copied. Paste it into Claude."; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function(){ prompt("Copy this:", txt); });
+  else prompt("Copy this:", txt);
+  window._lastKickoff = txt;
 }
 
 function copyDeskForClaude() {
@@ -2175,6 +2287,7 @@ function saveDeskState() {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); desk.topLeads.push(obj);
     });
     desk.targets = targetsDB.map(function(t){ return Object.assign({}, t); });
+    var _pt = document.getElementById("plan-text"); if (_pt) desk.plan = { date: _pt.getAttribute("data-date") || "", text: _pt.value };
     desk.contractors = [];
     document.querySelectorAll("#contractor-rows > div").forEach(function(row) {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); if (obj["ct-name"]) desk.contractors.push(obj);
@@ -2212,7 +2325,7 @@ function loadDeskState() {
       (desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
       (desk.targets||[]).forEach(function(d){ addTargetRow(d); });
       (desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
-      var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]);
+      var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]); setPlanCard(desk.plan);
       (desk.rules||[]).forEach(function(d){ addRuleRow(d); });
     } else {
       loadDefaultDeskState();
@@ -4557,7 +4670,7 @@ async function loadDeskFromOneDrive() {
         (data.desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
         (data.desk.targets||[]).forEach(function(d){ addTargetRow(d); });
         (data.desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
-        var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (data.desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(data.desk.contractors||[]);
+        var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (data.desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(data.desk.contractors||[]); setPlanCard(data.desk.plan);
         (data.desk.rules||[]).forEach(function(d){ addRuleRow(d); });
         // Also update localStorage so next load is instant
         localStorage.setItem('tg_desk', JSON.stringify(data.desk));
