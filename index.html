@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Thomas Grace — Command Center v14</title>
+<title>Thomas Grace — Command Center v15</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; background: #f5f5f0; color: #2c2c2a; min-height: 100vh; }
@@ -246,13 +246,14 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div><div class="header-title">Thomas Grace — Command Center</div><div class="header-sub">Plan. Work. Capture. Reflect. Strategize. Repeat.</div></div>
   <div class="header-right">
     <div class="header-date" id="header-date"></div>
-    <div class="countdown" id="countdown"></div>
+    <div class="countdown" id="countdown" style="display:none"></div>
   </div>
 </div>
 
 <!-- NAV -->
 <div class="nav">
   <button class="nav-btn active" onclick="switchTab('desk',this)">My Desk</button>
+  <button class="nav-btn" onclick="switchTab('targets',this)" style="color:#185FA5;">Targets</button>
   <button class="nav-btn" onclick="switchTab('dailyplan',this)">Daily Plan</button>
   <button class="nav-btn" onclick="switchTab('daily',this)">Daily Capture</button>
   <button class="nav-btn" onclick="switchTab('intel',this)">Intelligence</button>
@@ -266,6 +267,28 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div style="margin-left:auto;display:flex;gap:6px;padding:6px 0;">
     <button class="btn btn-dark" style="font-size:11px;padding:4px 12px;" onclick="document.getElementById('newday-modal').classList.add('open')">Close Day</button>
   </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TARGETS TAB (v15) -->
+<!-- ============================================================ -->
+<div id="tab-targets" class="tab-pane">
+<div class="page">
+  <div class="card">
+    <div class="card-title" style="color:#185FA5;">
+      <span>Targets <span id="tg-count" style="font-weight:normal;font-size:11px;color:#888780;"></span></span>
+      <button class="btn btn-blue" style="font-size:11px;padding:5px 12px;" onclick="editTarget(null)">+ Add Target</button>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+      <input type="text" id="tg-q" placeholder="Search targets, contacts, notes..." oninput="renderTargetsTab()">
+      <select id="tg-type" onchange="renderTargetsTab()"><option value="">Anchor + Rotation</option><option value="anchor">Anchor</option><option value="rotation">Rotation</option></select>
+      <select id="tg-line" onchange="renderTargetsTab()"><option value="">Residential + Commercial</option><option>Residential</option><option>Commercial</option></select>
+      <select id="tg-sort" onchange="renderTargetsTab()"><option value="next">Sort: next step date</option><option value="name">Sort: name</option><option value="recent">Sort: least recently touched</option></select>
+    </div>
+    <div id="tg-due" style="margin-bottom:12px;"></div>
+    <div id="tg-list"></div>
+  </div>
+</div>
 </div>
 
 <!-- ============================================================ -->
@@ -288,10 +311,11 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <!-- UPDATE FROM CLAUDE -->
   <div class="card">
     <div class="card-title" style="color:#1D9E75;">Update My Desk from Claude</div>
-    <p style="font-size:12px;color:#888780;margin-bottom:10px;">At EOD paste Claude's response here and click Update. Your desk is backed up before any change.</p>
+    <p style="font-size:12px;color:#888780;margin-bottom:10px;">Paste Claude's My Desk update and click Update. It only adds, changes or removes the items listed. Everything else stays.</p>
     <textarea id="desk-claude-paste" class="notes-area" style="min-height:90px;" placeholder="Paste Claude's end of day response here..."></textarea>
     <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
       <button class="btn btn-green" onclick="updateDeskFromClaude()">Update My Desk</button>
+      <button class="btn btn-gray" style="font-size:11px;" onclick="undoDeskUpdate()">Undo last update</button>
       <span id="desk-update-status" style="font-size:11px;color:#1D9E75;display:none;">My Desk updated.</span>
     </div>
   </div>
@@ -317,14 +341,18 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div id="top-leads-rows"></div>
   </div>
 
-  <!-- TARGETS -->
+  <div id="target-rows" style="display:none"></div>
+
+  <!-- CONTRACTORS (v15) -->
   <div class="card">
-    <div class="card-title" style="color:#185FA5;">
-      <span>Targets</span>
-      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addTargetRow()">+ Add Target</button>
+    <div class="card-title" style="color:#0F6E56;">
+      <span>Contractors on Assignment <span id="ct-summary" style="font-weight:normal;font-size:11px;color:#888780;"></span></span>
+      <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addContractorRow({});saveDeskState();">+ Add Contractor</button>
     </div>
-    <div style="font-size:11px;color:#888780;margin-bottom:8px;">Anchor targets reviewed quarterly &middot; Rotation targets adjusted daily</div>
-    <div id="target-rows"></div>
+    <div style="display:grid;grid-template-columns:1.3fr 1.2fr 1.2fr 0.8fr 0.7fr 0.7fr 0.9fr 24px;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f0f0ea;">
+      <span class="desk-col-label">Contractor</span><span class="desk-col-label">Client</span><span class="desk-col-label">Role</span><span class="desk-col-label">Start</span><span class="desk-col-label">Pay $/hr</span><span class="desk-col-label">Bill $/hr</span><span class="desk-col-label">Status</span><span></span>
+    </div>
+    <div id="contractor-rows"></div>
   </div>
 
   <!-- HOT CANDIDATES -->
@@ -339,17 +367,10 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div id="hot-candidate-rows"></div>
   </div>
 
-  <!-- KEY RULES -->
-  <div class="card">
-    <div class="card-title" style="color:#E24B4A;">Key Rules in Play</div>
-    <div id="rules-rows"></div>
-  </div>
+  <!-- KEY RULES (removed from view) -->
+  <div id="rules-rows" style="display:none"></div>
 
-  <!-- 2026 SCOREBOARD -->
-  <div class="card">
-    <div class="card-title" style="color:#2c2c2a;">2026 Scoreboard</div>
-    <div id="scoreboard-card"><div class="empty-state">Loading scoreboard...</div></div>
-  </div>
+  <!-- 2026 SCOREBOARD removed in v15 -->
 
   <div id="search-rows" style="display:none;"></div>
   <div id="leads-opp-rows" style="display:none;"></div>
@@ -1173,6 +1194,7 @@ function saveInteraction() {
     purpose: document.getElementById("purpose").value,
     activity: document.getElementById("activity").value,
     notes: document.getElementById("notes-dump").value.trim(),
+    date: todayKey,
     extra: {}
   };
   if (item.purpose === "Client") {
@@ -1402,17 +1424,17 @@ function endOfDay() {
   lines.push("4. BD PIPELINE UPDATE — every thread touched, signal, next action");
   lines.push("5. TOMORROW'S NEEDLE MOVERS — what cannot wait, one per bucket");
   lines.push("6. CLOSE OUT CHECKLIST — step by step numbered list of every action I need to take right now to close out my day properly");
-  lines.push("7. UPDATED MY DESK — generate a complete updated My Desk block I can paste back into the tool. Use this exact format:");
+  lines.push("7. MY DESK CHANGES — list ONLY what changed today (the paste adds, updates or removes those items and leaves everything else alone). Use REMOVE: [name] to take something off and REMOVE REQ: [title] to close a req. Format:");
   lines.push("   ACTIVE SEARCHES:");
   lines.push("   REQ: [Req Title] | [Client] | HM: [Hiring Manager]");
   lines.push("   · [Candidate] | [Stage] | Last: [date] | Next: [next step]");
   lines.push("   (repeat for each candidate in that req, then start next REQ: block)");
   lines.push("   TOP 5 LEADS:");
   lines.push("   · [Lead / Contact] | [Status] | Next: [action]");
+  lines.push("   TARGETS:");
+  lines.push("   · [Company] | Anchor or Rotation | Residential or Commercial | Stage: [stage] | Next: [next step] [YYYY-MM-DD] | Contacts: Name (Title); Name (Title)");
   lines.push("   HOT CANDIDATES TO MARKET:");
   lines.push("   · [Name] | [Role/Comp] | [Location] | [Who to call]");
-  lines.push("   KEY RULES:");
-  lines.push("   · [Rule]");
   lines.push("   TOMORROW'S SUGGESTED GOALS:");
   lines.push("   RECRUITING: [suggestion based on what needs to move]");
   lines.push("   DELIVERY: [suggestion based on active searches]");
@@ -1548,179 +1570,168 @@ function confirmNewDay() {
 // ============================================================
 function updateDeskFromClaude() {
   var raw = document.getElementById("desk-claude-paste").value.trim();
-  if (!raw) { alert("Paste Claude's response first."); return; }
+  if (!raw) { alert("Paste Claude's update first."); return; }
 
-  // BACKUP current state before clearing anything
+  // Make sure the stored desk matches what is on screen, then back it up
+  saveDeskState();
   var backup = localStorage.getItem("tg_desk");
+  try { localStorage.setItem("tg_desk_backup", backup || ""); } catch(e) {}
+  var desk;
+  try { desk = JSON.parse(backup || "{}"); } catch(e) { desk = {}; }
+  desk.reqs = desk.reqs || []; desk.topLeads = desk.topLeads || []; desk.targets = desk.targets || [];
+  desk.hotCandidates = desk.hotCandidates || []; desk.rules = desk.rules || [];
 
-  document.getElementById("req-blocks").innerHTML = "";
-  document.getElementById("top-leads-rows").innerHTML = "";
-  document.getElementById("target-rows").innerHTML = "";
-  document.getElementById("hot-candidate-rows").innerHTML = "";
-  document.getElementById("rules-rows").innerHTML = "";
-
-  // ---- Helper: map any stage text to a valid dropdown option ----
   function normalizeStage(s) {
     s = (s||"").trim();
     var stages = ['Contacting','Screening','Submitted','Client Interviewing','Offer','Placed','On Hold','Not a Fit'];
-    for (var i=0; i<stages.length; i++) {
-      if (s.toLowerCase().indexOf(stages[i].toLowerCase()) !== -1) return stages[i];
-    }
-    // fuzzy fallbacks
+    for (var i=0; i<stages.length; i++) { if (s.toLowerCase().indexOf(stages[i].toLowerCase()) !== -1) return stages[i]; }
     if (/interview/i.test(s)) return 'Client Interviewing';
     if (/submit/i.test(s)) return 'Submitted';
     if (/offer/i.test(s)) return 'Offer';
     if (/place/i.test(s)) return 'Placed';
     if (/hold/i.test(s)) return 'On Hold';
-    if (/contact/i.test(s)) return 'Contacting';
     if (/screen/i.test(s)) return 'Screening';
     return 'Contacting';
   }
+  function stripBullet(t) { return t.replace(/^[·\-\*\•]\s*/,"").trim(); }
+  function key(t) { return String(t||"").split("(")[0].split(" / ")[0].toLowerCase().replace(/[^a-z0-9]/g,""); }
+  function same(a, b) { var x = key(a), y = key(b); return !!x && !!y && (x === y || x.indexOf(y) === 0 || y.indexOf(x) === 0); }
+  function isRemove(line) { return /^(remove|delete|drop)\s*:/i.test(line); }
+  function removeName(line) { return line.replace(/^(remove|delete|drop)\s*:\s*/i, "").trim(); }
 
-  // ---- Helper: strip leading bullet chars ----
-  function stripBullet(s) { return s.replace(/^[·\-\*\•]\s*/,"").trim(); }
+  // Split the paste into sections. Only sections that appear get touched.
+  var HEADS = [
+    { k: "reqs", re: /^(ACTIVE SEARCHES|OPEN REQS|SEARCHES)\b/i },
+    { k: "leads", re: /^(TOP 5 LEADS|TOP LEADS|HOT LEADS|LEADS)\b/i },
+    { k: "targets", re: /^TARGETS\b/i },
+    { k: "hc", re: /^HOT CANDIDATES\b/i },
+    { k: "skip", re: /^(KEY RULES|TOMORROW|SEPARATE WEEKLEY|SCOREBOARD|---MY DESK BLOCK ENDS---)/i }
+  ];
+  var sections = {}, cur = null, replace = {};
+  raw.split(/\r?\n/).forEach(function(line) {
+    var t = line.trim(); if (!t) return;
+    var h = null;
+    for (var i=0; i<HEADS.length; i++) { if (HEADS[i].re.test(t)) { h = HEADS[i]; break; } }
+    if (h) { cur = h.k === "skip" ? null : h.k; if (cur) { sections[cur] = sections[cur] || []; if (/replace/i.test(t)) replace[cur] = true; } return; }
+    if (cur) sections[cur].push(t);
+  });
+  if (!Object.keys(sections).length) { alert("I couldn't find any My Desk sections in that paste (ACTIVE SEARCHES, TOP LEADS, TARGETS, HOT CANDIDATES). Nothing was changed."); return; }
 
-  // ---- Helper: extract section between two headings ----
-  function getSection(text, start, ends) {
-    var pattern = start + "[:\\-\\s]*([\\s\\S]*?)(?=" + ends.join("|") + "|$)";
-    var m = text.match(new RegExp(pattern, "i"));
-    return m ? m[1] : "";
-  }
+  var added = 0, changed = 0, removed = 0;
 
   // ---- ACTIVE SEARCHES ----
-  var searchText = getSection(raw, "ACTIVE SEARCHES", ["TOP 5 LEADS","HOT CANDIDATES","KEY RULES","TOMORROW'S","SEPARATE WEEKLEY","---MY DESK BLOCK ENDS---"]);
-
-  // Split into per-REQ blocks (also handle SEPARATE WEEKLEY TRACK as its own block)
-  var allBlocks = [];
-
-  // Pull out SEPARATE WEEKLEY TRACK if present
-  var weekleyTrackMatch = raw.match(/SEPARATE WEEKLEY TRACK[:\-\s]*([\s\S]*?)(?=TOP 5 LEADS|HOT CANDIDATES|KEY RULES|TOMORROW|---MY DESK BLOCK ENDS---|$)/i);
-
-  // Split main search text by REQ: lines
-  var reqChunks = searchText.split(/(?=^REQ:)/im).filter(function(s){ return s.trim(); });
-  reqChunks.forEach(function(chunk){ allBlocks.push({ type:"req", text:chunk }); });
-  if (weekleyTrackMatch) allBlocks.push({ type:"weekley", text: weekleyTrackMatch[1] });
-
-  allBlocks.forEach(function(blockObj) {
-    var lines = blockObj.text.split("\n").map(function(l){ return l.trim(); }).filter(Boolean);
-    var reqData = {};
-    var candidates = [];
-    var lastCand = null;
-
-    lines.forEach(function(line) {
-      if (line.match(/^REQ:/i)) {
-        // REQ: Title | Client | HM: Name
-        var parts = line.replace(/^REQ:\s*/i,"").split("|").map(function(p){ return p.trim(); });
-        reqData["req-title"] = parts[0]||"";
-        reqData["req-client"] = parts[1]||"";
-        reqData["req-hm"] = (parts[2]||"").replace(/^HM:\s*/i,"");
-      } else if (line.match(/^SEPARATE WEEKLEY TRACK/i)) {
-        reqData["req-title"] = "Separate Weekley Track";
-        reqData["req-client"] = "David Weekley Homes";
-        reqData["req-hm"] = "";
-      } else if (line.match(/^[·\-\*\•]/)) {
-        // Candidate line: · Name | Stage | Last: date | Next: note
-        var clean = stripBullet(line);
-        var parts = clean.split("|").map(function(p){ return p.trim(); });
-
-        // Name might have extra context after it — just take first part as name
-        var nameRaw = parts[0]||"";
-        var stageRaw = parts[1]||"";
-        var touchRaw = (parts[2]||"").replace(/Last:\s*/i,"");
-        var nextRaw = (parts[3]||"").replace(/Next:\s*/i,"");
-
-        // If next step is very long, truncate for the field (full detail stays in notes)
-        if (nextRaw.length > 120) nextRaw = nextRaw.substring(0,117) + "...";
-
-        lastCand = {
-          "cand-name": nameRaw,
-          "cand-stage": normalizeStage(stageRaw),
-          "cand-touch": touchRaw,
-          "cand-next": nextRaw
-        };
-        candidates.push(lastCand);
-      } else if (lastCand && line.length > 2 && !line.match(/^REQ:/i)) {
-        // Continuation line — append to last candidate's next step note
-        if (lastCand["cand-next"] && lastCand["cand-next"].length < 200) {
-          lastCand["cand-next"] += " " + line;
-        }
+  if (sections.reqs) {
+    if (replace.reqs) desk.reqs = [];
+    var req = null;
+    sections.reqs.forEach(function(line) {
+      var m;
+      if ((m = line.match(/^(remove|delete|drop)\s+req\s*:\s*(.+)$/i))) {
+        var before = desk.reqs.length; desk.reqs = desk.reqs.filter(function(r){ return !same(r["req-title"], m[2]); }); removed += before - desk.reqs.length; req = null; return;
+      }
+      if ((m = line.match(/^REQ\s*:\s*(.+)$/i))) {
+        var parts = m[1].split("|").map(function(p){ return p.trim(); });
+        req = desk.reqs.find(function(r){ return same(r["req-title"], parts[0]); });
+        if (!req) { req = { "req-title": parts[0], "req-client": "", "req-hm": "", candidates: [] }; desk.reqs.push(req); added++; }
+        if (parts[1]) req["req-client"] = parts[1];
+        if (parts[2]) req["req-hm"] = parts[2].replace(/^HM:\s*/i, "");
+        req.candidates = req.candidates || [];
+        return;
+      }
+      if (!req) return;
+      if (isRemove(line)) {
+        var n = removeName(line), b4 = req.candidates.length;
+        req.candidates = req.candidates.filter(function(c){ return !same(c["cand-name"], n); }); removed += b4 - req.candidates.length; return;
+      }
+      if (/^[·\-\*\•]/.test(line)) {
+        var p = stripBullet(line).split("|").map(function(x){ return x.trim(); });
+        var data = { "cand-name": p[0] };
+        if (p[1]) data["cand-stage"] = normalizeStage(p[1]);
+        if (p[2]) data["cand-touch"] = p[2].replace(/^Last:\s*/i, "");
+        if (p[3]) data["cand-next"] = p.slice(3).join(" | ").replace(/^Next:\s*/i, "");
+        var ex = req.candidates.find(function(c){ return same(c["cand-name"], p[0]); });
+        if (ex) { Object.assign(ex, data); changed++; } else { req.candidates.push(Object.assign({ "cand-stage": "Contacting", "cand-touch": "", "cand-next": "" }, data)); added++; }
       }
     });
-
-    if (reqData["req-title"] || candidates.length) {
-      reqData.candidates = candidates;
-      addReqBlock(reqData);
-    }
-  });
-
-  // If nothing parsed at all, make one empty block so screen isn't blank
-  if (document.getElementById("req-blocks").children.length === 0) {
-    addReqBlock({});
   }
 
-  // ---- TOP 5 LEADS ----
-  var leadsText = getSection(raw, "TOP 5 LEADS", ["HOT CANDIDATES","KEY RULES","ACTIVE SEARCHES","TOMORROW","---MY DESK BLOCK ENDS---"]);
-  leadsText.split("\n").map(function(l){ return l.trim(); }).filter(function(l){ return l.match(/^[·\-\*\•]/); }).forEach(function(line) {
-    var clean = stripBullet(line);
-    // Format: Name / Company | status text | Next: ...
-    // Be flexible — just split on first pipe for name, rest for next action
-    var pipeIdx = clean.indexOf("|");
-    var name = pipeIdx > -1 ? clean.substring(0, pipeIdx).trim() : clean;
-    var rest = pipeIdx > -1 ? clean.substring(pipeIdx+1).trim() : "";
-    // Try to find a Next: token
-    var nextMatch = rest.match(/Next:\s*(.*)/i);
-    var nextText = nextMatch ? nextMatch[1].trim() : rest;
-    // Status is everything before Next:
-    var statusText = nextMatch ? rest.substring(0, rest.toLowerCase().indexOf("next:")).trim().replace(/[|,\s]+$/,"") : "";
-    addTopLeadRow({"tl-lead": name, "tl-status": statusText||"Warm — keep touching", "tl-next": nextText});
-  });
-
-  // ---- HOT CANDIDATES TO MARKET ----
-  var hotText = getSection(raw, "HOT CANDIDATES[^:\\n]*", ["TOP 5 LEADS","KEY RULES","ACTIVE SEARCHES","TOMORROW","---MY DESK BLOCK ENDS---"]);
-  hotText.split("\n").map(function(l){ return l.trim(); }).filter(function(l){ return l.match(/^[·\-\*\•]/); }).forEach(function(line) {
-    var clean = stripBullet(line);
-    var parts = clean.split("|").map(function(p){ return p.trim(); });
-    addHotCandidateRow({"hc-name":parts[0]||"","hc-role":parts[1]||"","hc-location":parts[2]||"","hc-pitch":parts[3]||""});
-  });
-
-  // ---- KEY RULES ----
-  var rulesText = getSection(raw, "KEY RULES[^:\\n]*", ["ACTIVE SEARCHES","HOT CANDIDATES","TOP 5 LEADS","TOMORROW","---MY DESK BLOCK ENDS---"]);
-  rulesText.split("\n").map(function(l){ return l.trim(); }).filter(function(l){ return l.match(/^[·\-\*\•]/) && l.length > 3; }).forEach(function(line) {
-    addRuleRow({ text: stripBullet(line) });
-  });
-
-  // If nothing parsed — restore from backup so desk never goes blank
-  var reqCount = document.getElementById("req-blocks").children.length;
-  var candCount = document.getElementById("hot-candidate-rows").children.length;
-  if (reqCount === 0 && candCount === 0 && backup) {
-    alert("Could not parse that format. Your desk has been restored. No data was lost.");
-    document.getElementById("req-blocks").innerHTML = "";
-    document.getElementById("top-leads-rows").innerHTML = "";
-    document.getElementById("hot-candidate-rows").innerHTML = "";
-    document.getElementById("rules-rows").innerHTML = "";
-    var bd = JSON.parse(backup);
-    (bd.reqs||[]).forEach(function(d){ addReqBlock(d); });
-    (bd.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
-    (bd.targets||[]).forEach(function(d){ addTargetRow(d); });
-    (bd.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
-    (bd.rules||[]).forEach(function(d){ addRuleRow(d); });
-    document.getElementById("desk-claude-paste").value = "";
-    return;
+  // ---- generic list sections ----
+  function applyList(lines, list, nameKey, build) {
+    lines.forEach(function(line) {
+      if (isRemove(line)) { var n = removeName(line), b4 = list.length; for (var i = list.length-1; i >= 0; i--) { if (same(list[i][nameKey], n)) list.splice(i, 1); } removed += b4 - list.length; return; }
+      if (!/^[·\-\*\•]/.test(line)) return;
+      var data = build(stripBullet(line));
+      var ex = list.find(function(x){ return same(x[nameKey], data[nameKey]); });
+      if (ex) { Object.keys(data).forEach(function(k){ if (data[k]) ex[k] = data[k]; }); changed++; } else { list.push(data); added++; }
+    });
+  }
+  if (sections.leads) {
+    if (replace.leads) desk.topLeads = [];
+    applyList(sections.leads, desk.topLeads, "tl-lead", function(t) {
+      var i = t.indexOf("|"), name = i > -1 ? t.substring(0, i).trim() : t, rest = i > -1 ? t.substring(i+1).trim() : "";
+      var nm = rest.match(/Next:\s*(.*)/i), next = nm ? nm[1].trim() : "";
+      var status = nm ? rest.substring(0, rest.toLowerCase().indexOf("next:")).trim().replace(/[|,\s]+$/,"") : rest;
+      return { "tl-lead": name, "tl-status": status, "tl-next": next };
+    });
+  }
+  if (sections.targets) {
+    if (replace.targets) desk.targets = [];
+    applyList(sections.targets, desk.targets, "name", function(t) {
+      var p = t.split("|").map(function(x){ return x.trim(); });
+      var o = { name: p[0] }, notes = [];
+      p.slice(1).forEach(function(x){
+        var m;
+        if (/^(anchor|rotation)$/i.test(x)) o.type = x.toLowerCase();
+        else if (/^(residential|commercial)$/i.test(x)) o.line = x.charAt(0).toUpperCase() + x.slice(1).toLowerCase();
+        else if ((m = x.match(/^stage:\s*(.+)$/i))) o.stage = m[1];
+        else if ((m = x.match(/^next:\s*(.+)$/i))) { var dm = m[1].match(/(\d{4}-\d{2}-\d{2})\s*$/); if (dm) { o.nextDate = dm[1]; o.next = m[1].replace(dm[0], '').replace(/[\s—-]+$/,''); } else o.next = m[1]; }
+        else if ((m = x.match(/^contacts?:\s*(.+)$/i))) o._contacts = m[1].split(";").map(function(c){ c = c.trim(); var mm = c.match(/^([^(]+)\(([^)]*)\)/); return mm ? { name: mm[1].trim(), title: mm[2].trim() } : { name: c }; }).filter(function(c){ return c.name; });
+        else notes.push(x);
+      });
+      if (notes.length) o.note = notes.join(" | ");
+      return o;
+    });
+    desk.targets.forEach(function(x){
+      if (!x.type) x.type = "anchor";
+      x.contacts = x.contacts || [];
+      (x._contacts || []).forEach(function(c){ if (!x.contacts.some(function(y){ return same(y.name, c.name); })) x.contacts.push(Object.assign({ role: '', status: 'Not contacted', email: '', phone: '', seq: [] }, c)); });
+      delete x._contacts;
+    });
+  }
+  if (sections.hc) {
+    if (replace.hc) desk.hotCandidates = [];
+    applyList(sections.hc, desk.hotCandidates, "hc-name", function(t) {
+      var p = t.split("|").map(function(x){ return x.trim(); });
+      return { "hc-name": p[0], "hc-role": p[1]||"", "hc-location": p[2]||"", "hc-pitch": p.slice(3).join(" | ") };
+    });
   }
 
+  // Rebuild the screen from the merged desk and save
+  ["req-blocks","top-leads-rows","hot-candidate-rows","rules-rows"].forEach(function(id){ var el = document.getElementById(id); if (el) el.innerHTML = ""; }); clearTargets();
+  desk.reqs.forEach(function(d){ addReqBlock(d); });
+  desk.topLeads.forEach(function(d){ addTopLeadRow(d); });
+  desk.targets.forEach(function(d){ addTargetRow(d); });
+  desk.hotCandidates.forEach(function(d){ addHotCandidateRow(d); });
+  var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]);
+  desk.rules.forEach(function(d){ addRuleRow(d); });
   saveDeskState();
+
   var now = new Date();
   var ts = now.toLocaleDateString() + " at " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
   localStorage.setItem("tg_desk_updated", ts);
-  document.getElementById("desk-last-updated").textContent = "Last updated: " + ts;
+  var lu = document.getElementById("desk-last-updated"); if (lu) lu.textContent = "Last updated: " + ts;
   document.getElementById("desk-claude-paste").value = "";
-  var s = document.getElementById("desk-update-status");
-  s.style.display = "inline"; s.textContent = "My Desk updated.";
-  setTimeout(function(){ s.style.display="none"; }, 4000);
-  var deskJSON = localStorage.getItem('tg_desk');
-  if (deskJSON) {
-    saveDeskToOneDrive({ desk: JSON.parse(deskJSON), updated: ts });
-  }
+  var st = document.getElementById("desk-update-status");
+  st.style.display = "inline"; st.textContent = "Updated — " + added + " added, " + changed + " changed, " + removed + " removed. Everything else left as is.";
+  setTimeout(function(){ st.style.display="none"; }, 8000);
+  saveDeskToOneDrive({ desk: JSON.parse(localStorage.getItem('tg_desk')), updated: now.toISOString() });
+}
+
+function undoDeskUpdate() {
+  var b = localStorage.getItem("tg_desk_backup");
+  if (!b) { alert("No earlier version saved."); return; }
+  if (!confirm("Put My Desk back the way it was before the last update?")) return;
+  localStorage.setItem("tg_desk", b); loadDeskState(); saveDeskState();
+  alert("My Desk restored.");
 }
 
 function buildDeskLines() {
@@ -1756,10 +1767,6 @@ function buildDeskLines() {
     if (obj["hc-name"]) lines.push("· " + obj["hc-name"] + " | " + obj["hc-role"] + " | " + obj["hc-location"] + " | " + obj["hc-pitch"]);
   });
   lines.push("");
-  lines.push("KEY RULES:");
-  document.querySelectorAll("#rules-rows input[data-key='rule-text']").forEach(function(inp) {
-    if (inp.value) lines.push("· " + inp.value);
-  });
   return lines;
 }
 
@@ -1801,6 +1808,7 @@ function copyDeskForClaude() {
 // ============================================================
 // MY DESK ROWS
 // ============================================================
+function escAttr(v) { return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
 function makeInput(placeholder, key, extraStyle) {
   return '<input type="text" placeholder="' + placeholder + '" data-key="' + key + '" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;' + (extraStyle||'') + '" oninput="saveDeskState()">';
 }
@@ -1814,11 +1822,14 @@ function addReqBlock(data) {
   block.style.cssText = "border:1px solid #e8f5ee;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#f9fdf9;";
 
   var header = document.createElement("div");
-  header.style.cssText = "display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e0e0d8;";
+  header.style.cssText = "display:grid;grid-template-columns:2fr 1fr 1fr 150px auto;gap:8px;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e0e0d8;";
+  var eng = data["req-engine"] || "";
   header.innerHTML =
-    '<input type="text" placeholder="Req title (e.g. Weekley National Supply Chain Dir)" data-key="req-title" style="border:none;font-size:13px;font-weight:bold;font-family:Arial;color:#1D9E75;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["req-title"]||"") + '">' +
-    '<input type="text" placeholder="Client" data-key="req-client" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["req-client"]||"") + '">' +
-    '<input type="text" placeholder="Hiring Manager" data-key="req-hm" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["req-hm"]||"") + '">' +
+    '<input type="text" placeholder="Req title (e.g. Weekley National Supply Chain Dir)" data-key="req-title" style="border:none;font-size:13px;font-weight:bold;font-family:Arial;color:#1D9E75;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["req-title"]||"") + '">' +
+    '<input type="text" placeholder="Client" data-key="req-client" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["req-client"]||"") + '">' +
+    '<input type="text" placeholder="Hiring Manager" data-key="req-hm" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["req-hm"]||"") + '">' +
+    '<select data-key="req-engine" onchange="saveDeskState()" style="font-size:11px;padding:3px 4px;border:1px solid #e0e0d8;border-radius:5px;' + (eng.indexOf("Upstream") === 0 ? 'color:#185FA5;' : (eng ? 'color:#0F6E56;' : 'color:#E24B4A;')) + '">' +
+      ['','Thomas Grace DP','Upstream DP','Upstream Contract','Upstream TAAS'].map(function(o){ return '<option' + (o === eng ? ' selected' : '') + ' value="' + o + '">' + (o || '— which engine? —') + '</option>'; }).join('') + '</select>' +
     '<div style="display:flex;gap:4px;">' +
     '<button onclick="addCandidateToReq(this)" style="border:1px solid #1D9E75;background:white;color:#1D9E75;border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer;white-space:nowrap;">+ Candidate</button>' +
     '<button onclick="this.closest(\'.req-block\').remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:16px;">×</button>' +
@@ -1853,13 +1864,13 @@ function addCandidateRow(container, data) {
   var div = document.createElement("div");
   div.style.cssText = "display:grid;grid-template-columns:1.5fr 1fr 1fr 1.5fr;gap:6px;padding:5px 0;border-bottom:1px solid #f5f5f0;align-items:center;";
   div.innerHTML =
-    '<input type="text" placeholder="Name" data-key="cand-name" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["cand-name"]||"") + '">' +
+    '<input type="text" placeholder="Name" data-key="cand-name" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["cand-name"]||"") + '">' +
     '<select data-key="cand-stage" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" onchange="saveDeskState()">' +
     ['Contacting','Screening','Submitted','Client Interviewing','Offer','Placed','On Hold','Not a Fit'].map(function(s){ return '<option'+(data["cand-stage"]===s?' selected':'')+'>'+s+'</option>'; }).join('') +
     '</select>' +
-    '<input type="text" placeholder="Date" data-key="cand-touch" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["cand-touch"]||"") + '">' +
+    '<input type="text" placeholder="Date" data-key="cand-touch" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["cand-touch"]||"") + '">' +
     '<div style="display:flex;gap:4px;">' +
-    '<input type="text" placeholder="Next step" data-key="cand-next" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;flex:1;" oninput="saveDeskState()" value="' + (data["cand-next"]||"") + '">' +
+    '<input type="text" placeholder="Next step" data-key="cand-next" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;flex:1;" oninput="saveDeskState()" value="' + escAttr(data["cand-next"]||"") + '">' +
     '<button onclick="this.closest(\'div\').parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;flex-shrink:0;">×</button>' +
     '</div>';
   container.appendChild(div);
@@ -1871,12 +1882,12 @@ function addTopLeadRow(data) {
   var div = document.createElement("div");
   div.style.cssText = "display:grid;grid-template-columns:2fr 1fr 2fr;gap:6px;padding:6px 0;border-bottom:1px solid #f5f5f0;align-items:center;";
   div.innerHTML =
-    '<input type="text" placeholder="Lead / Contact" data-key="tl-lead" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + (data["tl-lead"]||"") + '">' +
+    '<input type="text" placeholder="Lead / Contact" data-key="tl-lead" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["tl-lead"]||"") + '">' +
     '<select data-key="tl-status" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" onchange="saveDeskState()">' +
     ['Hot — req likely','Warm — keep touching','Cold — plant seed','Proposal sent','Search confirmed'].map(function(s){ return '<option'+(data["tl-status"]===s?' selected':'')+'>'+s+'</option>'; }).join('') +
     '</select>' +
     '<div style="display:flex;gap:4px;">' +
-    '<input type="text" placeholder="Next action" data-key="tl-next" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;flex:1;" oninput="saveDeskState()" value="' + (data["tl-next"]||"") + '">' +
+    '<input type="text" placeholder="Next action" data-key="tl-next" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;flex:1;" oninput="saveDeskState()" value="' + escAttr(data["tl-next"]||"") + '">' +
     '<button onclick="this.parentElement.parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;flex-shrink:0;">×</button>' +
     '</div>';
   document.getElementById("top-leads-rows").appendChild(div);
@@ -1903,51 +1914,238 @@ function addRuleRow(data) {
   div.style.cssText = "display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f5f5f0;";
   div.innerHTML =
     '<span style="color:#E24B4A;font-size:14px;flex-shrink:0;">⚠</span>' +
-    '<input type="text" placeholder="Rule..." data-key="rule-text" style="flex:1;border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" oninput="saveDeskState()" value="' + (data.text||'') + '">' +
+    '<input type="text" placeholder="Rule..." data-key="rule-text" style="flex:1;border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;" oninput="saveDeskState()" value="' + escAttr(data.text||'') + '">' +
     '<button onclick="this.parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;">×</button>';
   document.getElementById("rules-rows").appendChild(div);
 }
 
+// (v15) old DOM-based addTargetRow replaced by Targets page above
+
+
+// ============================================================
+// TARGETS (v15) — separate page, synced with My Desk / OneDrive
+// ============================================================
+var targetsDB = [];
+var TG_STAGES = ['Target','Contacted','Conversation','Meeting','Proposal','Client','Nurture'];
+var TG_FUNNEL = ['1 Unverified','2 Researched','3 Contact Identified','4 Warm','5 Client'];
+function stagesFor(t){ return t && t.line === 'Commercial' ? TG_FUNNEL : TG_STAGES; }
+function tgKey(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function clearTargets(){ targetsDB = []; renderTargetsTab(); }
 function addTargetRow(data) {
+  if (!data || !data.name) { editTarget(null); return; }
+  var ex = targetsDB.find(function(t){ return tgKey(t.name) === tgKey(data.name); });
+  if (ex) { Object.keys(data).forEach(function(k){ if (data[k] !== undefined && data[k] !== '') ex[k] = data[k]; }); }
+  else targetsDB.push(Object.assign({ type: 'anchor', stage: 'Target', line: '', contact: '', next: '', nextDate: '', note: '', activity: [], contacts: [] }, data));
+  renderTargetsTab();
+}
+function captureHistory() {
+  // every Daily Capture entry saved on this device, by day
+  var out = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k.indexOf('tg_state_') !== 0) continue;
+      var day = k.slice(9), st = JSON.parse(localStorage.getItem(k) || '{}');
+      (st.log || []).forEach(function(it){ out.push(Object.assign({ _day: it.date || day }, it)); });
+    }
+  } catch(e) {}
+  return out;
+}
+function dayToISO(d) { var m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(d||''); return m ? m[1] + '-' + ('0'+m[2]).slice(-2) + '-' + ('0'+m[3]).slice(-2) : ''; }
+function targetActivity(t, hist) {
+  var k = tgKey(t.name), list = [];
+  (t.activity || []).forEach(function(a){ list.push({ date: a.date, text: a.text, src: 'Note' }); });
+  if (k) hist.forEach(function(it){
+    var c = tgKey(it.contactCompany || it.contact || '');
+    if (c && (c.indexOf(k) >= 0 || (c.length > 3 && k.indexOf(c) >= 0))) {
+      list.push({ date: dayToISO(it._day), text: (it.contactName || '') + (it.commType ? ' · ' + it.commType : '') + (it.activity ? ' · ' + it.activity : '') + (it.notes ? ' — ' + it.notes : ''), src: 'Capture' });
+    }
+  });
+  list.sort(function(a, b){ return (a.date||'') < (b.date||'') ? 1 : -1; });
+  return list;
+}
+function tgEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var tgOpen = {};
+function renderTargetsTab() {
+  var box = document.getElementById('tg-list'); if (!box) return;
+  renderDueSteps();
+  var q = (document.getElementById('tg-q').value || '').toLowerCase();
+  var ty = document.getElementById('tg-type').value, ln = document.getElementById('tg-line').value, so = document.getElementById('tg-sort').value;
+  var hist = captureHistory();
+  var today = new Date(); var tISO = today.getFullYear() + '-' + ('0'+(today.getMonth()+1)).slice(-2) + '-' + ('0'+today.getDate()).slice(-2);
+  var rows = targetsDB.map(function(t){ var a = targetActivity(t, hist); return { t: t, act: a, last: a.length ? a[0].date : '' }; })
+    .filter(function(r){ return (!ty || r.t.type === ty) && (!ln || r.t.line === ln) && (!q || JSON.stringify(r.t).toLowerCase().indexOf(q) >= 0); });
+  rows.sort(function(a, b){
+    if (so === 'name') return a.t.name.localeCompare(b.t.name);
+    if (so === 'recent') return (a.last||'') < (b.last||'') ? -1 : 1;
+    return (a.t.nextDate||'9999') < (b.t.nextDate||'9999') ? -1 : 1;
+  });
+  var com = targetsDB.filter(function(t){ return t.line === 'Commercial'; });
+  var fun = TG_FUNNEL.map(function(f){ return f.slice(2) + ' ' + com.filter(function(t){ return t.stage === f; }).length; }).join(' · ');
+  document.getElementById('tg-count').textContent = '— ' + targetsDB.length + ' total' + (com.length ? '   |   Commercial funnel: ' + fun : '');
+  if (!rows.length) { box.innerHTML = '<div class="empty-state">No targets yet. Click + Add Target, or Claude can add them through Update My Desk.</div>'; return; }
+  box.innerHTML = rows.map(function(r){
+    var t = r.t, od = t.nextDate && t.nextDate < tISO, idx = targetsDB.indexOf(t);
+    var badge = '<span style="font-size:10px;background:' + (t.type === 'rotation' ? '#888780' : '#185FA5') + ';color:white;border-radius:3px;padding:2px 7px;">' + (t.type === 'rotation' ? 'Rotation' : 'Anchor') + '</span>';
+    var line = t.line ? ' <span style="font-size:10px;background:#f0efe9;color:#5f5e5a;border-radius:3px;padding:2px 7px;">' + tgEsc(t.line) + '</span>' : '';
+    var stage = '<select onchange="targetsDB[' + idx + '].stage=this.value;saveDeskState();renderTargetsTab();" style="width:auto;font-size:11px;padding:3px 6px;">' + (stagesFor(t).indexOf(t.stage) < 0 && t.stage ? [t.stage].concat(stagesFor(t)) : stagesFor(t)).map(function(s){ return '<option' + (s === t.stage ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>';
+    var html = '<div style="border:1px solid #e0e0d8;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:white;">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap;">' +
+        '<div><div style="font-size:14px;font-weight:bold;">' + tgEsc(t.name) + ' ' + badge + line + '</div>' +
+        '<div style="font-size:12px;color:#888780;margin-top:3px;">' + (t.contact ? tgEsc(t.contact) + ' · ' : '') + (r.last ? 'last activity ' + r.last.slice(5).replace('-','/') : 'no activity logged yet') + '</div></div>' +
+        '<div style="display:flex;gap:6px;align-items:center;">' + stage +
+          '<button class="btn btn-gray" style="font-size:11px;padding:4px 10px;" onclick="logTargetActivity(' + idx + ')">+ Activity</button>' +
+          '<button class="btn btn-gray" style="font-size:11px;padding:4px 10px;" onclick="editTarget(' + idx + ')">Edit</button>' +
+          '<button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="removeTarget(' + idx + ')">Remove</button></div>' +
+      '</div>' +
+      (t.next ? '<div style="font-size:13px;margin-top:6px;">' + (t.nextDate ? '<span style="font-size:10px;font-weight:bold;border-radius:9px;padding:2px 7px;margin-right:6px;background:' + (od ? '#fbe9e8;color:#a3302f' : '#fff0d9;color:#8a5a12') + ';">' + t.nextDate.slice(5).replace('-','/') + '</span>' : '') + '<b>Next:</b> ' + tgEsc(t.next) + '</div>' : '') +
+      (t.note ? '<div style="font-size:12px;color:#5f5e5a;margin-top:4px;">' + tgEsc(t.note) + '</div>' : '') +
+      contactsHTML(t, idx) +
+      '<div style="margin-top:6px;"><button class="btn btn-gray" style="font-size:11px;padding:3px 8px;border:none;color:#378ADD;" onclick="tgOpen[\'' + tgKey(t.name) + '\']=!tgOpen[\'' + tgKey(t.name) + '\'];renderTargetsTab();">' + r.act.length + ' activit' + (r.act.length === 1 ? 'y' : 'ies') + (tgOpen[tgKey(t.name)] ? ' ▲' : ' ▼') + '</button></div>';
+    if (tgOpen[tgKey(t.name)]) html += '<div style="border-top:1px dashed #e0e0d8;margin-top:4px;padding-top:6px;">' + (r.act.length ? r.act.slice(0, 30).map(function(a){ return '<div style="font-size:12px;padding:3px 0;"><span style="color:#888780;">' + (a.date ? a.date.slice(5).replace('-','/') : '') + ' · ' + a.src + '</span> ' + tgEsc(a.text) + '</div>'; }).join('') : '<div style="font-size:12px;color:#888780;">Nothing yet. Log a call in Daily Capture with this company, or click + Activity.</div>') + '</div>';
+    return html + '</div>';
+  }).join('');
+}
+
+var TG_SEQ = [
+  { day: 0, label: 'Email (intro / contract campaign)' },
+  { day: 3, label: 'Call' },
+  { day: 7, label: 'Follow-up email ("just checking back")' },
+  { day: 10, label: 'LinkedIn message or call' },
+  { day: 21, label: 'Value touch (intel, candidate, market note)' }
+];
+function tgISO(d){ return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+function tgAddDays(iso, n){ var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return tgISO(d); }
+function nextStep(c){ return (c.seq || []).find(function(x){ return !x.done; }) || null; }
+function editContact(ti, ci) {
+  var t = targetsDB[ti]; if (!t) return; t.contacts = t.contacts || [];
+  var c = ci == null ? {} : t.contacts[ci];
+  var f = function(k){ return tgEsc(c[k] || ''); };
+  var m = document.getElementById('tg-modal');
+  if (!m) { m = document.createElement('div'); m.id = 'tg-modal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto;'; document.body.appendChild(m); }
+  m.style.display = 'flex';
+  m.innerHTML = '<div style="background:white;border-radius:12px;padding:18px;width:100%;max-width:520px;">' +
+    '<div style="font-size:15px;font-weight:bold;margin-bottom:12px;">' + (ci == null ? 'Add contact — ' : 'Edit contact — ') + tgEsc(t.name) + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+    '<div><label class="field-label">Name</label><input type="text" id="tc-name" value="' + f('name') + '"></div>' +
+    '<div><label class="field-label">Title</label><input type="text" id="tc-title" value="' + f('title') + '"></div>' +
+    '<div><label class="field-label">Role</label><select id="tc-role">' + ['','HR / TA','Division President','VP / Function Head','Hiring Manager','BD / Exec','Referral','Other'].map(function(r){ return '<option' + (r === (c.role||'') ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select></div>' +
+    '<div><label class="field-label">Status</label><select id="tc-status">' + ['Not contacted','In sequence','Replied','Meeting set','Working','Not now','Wrong person'].map(function(r){ return '<option' + (r === (c.status||'Not contacted') ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select></div>' +
+    '<div><label class="field-label">Email</label><input type="text" id="tc-email" value="' + f('email') + '"></div>' +
+    '<div><label class="field-label">Phone</label><input type="text" id="tc-phone" value="' + f('phone') + '"></div>' +
+    '</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px;"><span>' + (ci == null ? '' : '<button class="btn btn-danger" id="tc-del">Remove contact</button>') + '</span><span style="display:flex;gap:8px;"><button class="btn btn-gray" onclick="document.getElementById(\'tg-modal\').style.display=\'none\'">Cancel</button><button class="btn btn-blue" id="tc-save">Save</button></span></div></div>';
+  document.getElementById('tc-save').onclick = function(){
+    var name = document.getElementById('tc-name').value.trim(); if (!name) { alert('Add a name.'); return; }
+    var o = { name: name, title: document.getElementById('tc-title').value.trim(), role: document.getElementById('tc-role').value, status: document.getElementById('tc-status').value,
+      email: document.getElementById('tc-email').value.trim(), phone: document.getElementById('tc-phone').value.trim() };
+    if (ci == null) t.contacts.push(Object.assign({ seq: [] }, o)); else Object.assign(c, o);
+    tgOpen[tgKey(t.name)] = true; m.style.display = 'none'; saveDeskState(); renderTargetsTab();
+  };
+  var del = document.getElementById('tc-del');
+  if (del) del.onclick = function(){ if (!confirm('Remove ' + c.name + '?')) return; t.contacts.splice(ci, 1); m.style.display = 'none'; saveDeskState(); renderTargetsTab(); };
+}
+function startSequence(ti, ci) {
+  var t = targetsDB[ti], c = t && t.contacts[ci]; if (!c) return;
+  if ((c.seq||[]).some(function(x){ return !x.done; }) && !confirm('Restart the sequence for ' + c.name + '?')) return;
+  var start = prompt('Start date for ' + c.name + "'s sequence (YYYY-MM-DD):", tgISO(new Date())); if (!start) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) { alert('Use YYYY-MM-DD.'); return; }
+  c.seq = TG_SEQ.map(function(st, i){ return { step: i+1, label: st.label, due: tgAddDays(start, st.day), done: false }; });
+  c.status = 'In sequence'; tgOpen[tgKey(t.name)] = true; saveDeskState(); renderTargetsTab();
+}
+function doStep(ti, ci) {
+  var t = targetsDB[ti], c = t && t.contacts[ci]; if (!c) return;
+  var st = nextStep(c); if (!st) return;
+  var note = prompt('Step ' + st.step + ' — ' + st.label + ' with ' + c.name + '. Anything to note? (optional)', '');
+  if (note === null) return;
+  st.done = true; st.date = tgISO(new Date()); st.note = note;
+  t.activity = t.activity || []; t.activity.push({ date: st.date, text: c.name + ' — step ' + st.step + ': ' + st.label + (note ? ' — ' + note : '') });
+  if (!nextStep(c)) c.status = c.status === 'In sequence' ? 'Not now' : c.status;
+  saveDeskState(); renderTargetsTab();
+}
+function renderDueSteps() {
+  var box = document.getElementById('tg-due'); if (!box) return;
+  var t0 = tgISO(new Date()), due = [];
+  targetsDB.forEach(function(t, ti){ (t.contacts||[]).forEach(function(c, ci){ var st = nextStep(c); if (st && st.due <= t0 && ['Replied','Meeting set','Working','Wrong person'].indexOf(c.status) < 0) due.push({ t: t, ti: ti, c: c, ci: ci, st: st }); }); });
+  due.sort(function(a, b){ return a.st.due < b.st.due ? -1 : 1; });
+  if (!due.length) { box.innerHTML = '<div style="font-size:12px;color:#888780;">No sequence steps due today.</div>'; return; }
+  box.innerHTML = '<div style="background:#fff6e5;border:1px solid #f1d9a8;border-radius:8px;padding:10px 12px;"><div style="font-size:12px;font-weight:bold;color:#7a5410;margin-bottom:6px;">DUE TODAY — ' + due.length + ' sequence step' + (due.length > 1 ? 's' : '') + '</div>' +
+    due.map(function(d){ var od = d.st.due < t0; return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:4px 0;font-size:13px;"><span>' + (od ? '<b style="color:#a3302f;">overdue ' + d.st.due.slice(5).replace('-','/') + '</b> · ' : '') + '<b>' + tgEsc(d.c.name) + '</b>, ' + tgEsc(d.t.name) + ' — ' + tgEsc(d.st.label) + (d.c.phone ? ' · ' + tgEsc(d.c.phone) : '') + (d.c.email ? ' · ' + tgEsc(d.c.email) : '') + '</span><button class="btn btn-green" style="font-size:11px;padding:3px 10px;" onclick="doStep(' + d.ti + ',' + d.ci + ')">Done</button></div>'; }).join('') + '</div>';
+}
+function contactsHTML(t, ti) {
+  var cs = t.contacts || [];
+  var rows = cs.map(function(c, ci){
+    var st = nextStep(c), t0 = tgISO(new Date());
+    var stepTxt = st ? '<span style="font-size:10px;font-weight:bold;border-radius:9px;padding:2px 7px;background:' + (st.due < t0 ? '#fbe9e8;color:#a3302f' : (st.due === t0 ? '#fff0d9;color:#8a5a12' : '#eef4fb;color:#185FA5')) + ';">' + st.due.slice(5).replace('-','/') + '</span> Step ' + st.step + ': ' + tgEsc(st.label) : ((c.seq||[]).length ? '<span style="color:#1D9E75;">Sequence complete</span>' : '<span style="color:#888780;">No sequence</span>');
+    var doneCount = (c.seq||[]).filter(function(x){ return x.done; }).length;
+    return '<tr><td style="padding:5px;"><b>' + tgEsc(c.name) + '</b><div style="font-size:11px;color:#888780;">' + tgEsc([c.title, c.role].filter(Boolean).join(' · ')) + '</div><div style="font-size:11px;color:#888780;">' + tgEsc([c.phone, c.email].filter(Boolean).join(' · ')) + '</div></td>' +
+      '<td style="padding:5px;font-size:12px;">' + tgEsc(c.status || 'Not contacted') + '</td>' +
+      '<td style="padding:5px;font-size:12px;">' + stepTxt + ((c.seq||[]).length ? '<div style="font-size:11px;color:#888780;">' + doneCount + ' of ' + c.seq.length + ' done</div>' : '') + '</td>' +
+      '<td style="padding:5px;white-space:nowrap;text-align:right;">' + (st ? '<button class="btn btn-green" style="font-size:11px;padding:3px 8px;" onclick="doStep(' + ti + ',' + ci + ')">Done</button> ' : '') +
+      '<button class="btn btn-gray" style="font-size:11px;padding:3px 8px;" onclick="startSequence(' + ti + ',' + ci + ')">' + ((c.seq||[]).length ? 'Restart' : 'Start sequence') + '</button> ' +
+      '<button class="btn btn-gray" style="font-size:11px;padding:3px 8px;" onclick="editContact(' + ti + ',' + ci + ')">Edit</button></td></tr>';
+  }).join('');
+  return '<div style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:bold;color:#888780;text-transform:uppercase;letter-spacing:.04em;">Contacts (' + cs.length + ')</span><button class="btn btn-gray" style="font-size:11px;padding:3px 8px;" onclick="editContact(' + ti + ',null)">+ Contact</button></div>' +
+    (cs.length ? '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-top:4px;"><thead><tr style="font-size:10px;color:#888780;text-align:left;"><th style="padding:5px;">CONTACT</th><th style="padding:5px;">STATUS</th><th style="padding:5px;">NEXT STEP IN SEQUENCE</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div style="font-size:12px;color:#888780;padding:4px 0;">No contacts yet.</div>') + '</div>';
+}
+
+function editTarget(idx) {
+  var t = idx == null ? null : targetsDB[idx];
+  var v = t || { type: 'anchor', stage: 'Target' };
+  var f = function(k){ return tgEsc(v[k] || ''); };
+  var m = document.getElementById('tg-modal');
+  if (!m) { m = document.createElement('div'); m.id = 'tg-modal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto;'; document.body.appendChild(m); }
+  m.style.display = 'flex';
+  m.innerHTML = '<div style="background:white;border-radius:12px;padding:18px;width:100%;max-width:560px;">' +
+    '<div style="font-size:15px;font-weight:bold;margin-bottom:12px;">' + (t ? 'Edit ' + tgEsc(t.name) : 'Add target') + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+    '<div style="grid-column:1/-1"><label class="field-label">Company</label><input type="text" id="tgf-name" value="' + f('name') + '"></div>' +
+    '<div><label class="field-label">Type</label><select id="tgf-type"><option value="anchor"' + (v.type !== 'rotation' ? ' selected' : '') + '>Anchor</option><option value="rotation"' + (v.type === 'rotation' ? ' selected' : '') + '>Rotation</option></select></div>' +
+    '<div><label class="field-label">Line</label><select id="tgf-line"><option></option><option' + (v.line === 'Residential' ? ' selected' : '') + '>Residential</option><option' + (v.line === 'Commercial' ? ' selected' : '') + '>Commercial</option></select></div>' +
+    '<div><label class="field-label">Stage</label><select id="tgf-stage">' + TG_STAGES.concat(TG_FUNNEL).map(function(s){ return '<option' + (s === (v.stage||'Target') ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></div>' +
+    '<div><label class="field-label">Key contact(s)</label><input type="text" id="tgf-contact" value="' + f('contact') + '"></div>' +
+    '<div><label class="field-label">Next step</label><input type="text" id="tgf-next" value="' + f('next') + '"></div>' +
+    '<div><label class="field-label">Next step date</label><input type="date" id="tgf-nextDate" value="' + f('nextDate') + '"></div>' +
+    '<div style="grid-column:1/-1"><label class="field-label">Notes</label><textarea class="notes-area" id="tgf-note" style="min-height:60px;">' + f('note') + '</textarea></div>' +
+    '</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;"><button class="btn btn-gray" onclick="document.getElementById(\'tg-modal\').style.display=\'none\'">Cancel</button><button class="btn btn-blue" id="tgf-save">Save</button></div></div>';
+  document.getElementById('tgf-save').onclick = function(){
+    var name = document.getElementById('tgf-name').value.trim(); if (!name) { alert('Add a company name.'); return; }
+    var o = { name: name, type: document.getElementById('tgf-type').value, line: document.getElementById('tgf-line').value, stage: document.getElementById('tgf-stage').value,
+      contact: document.getElementById('tgf-contact').value.trim(), next: document.getElementById('tgf-next').value.trim(), nextDate: document.getElementById('tgf-nextDate').value, note: document.getElementById('tgf-note').value.trim() };
+    if (t) Object.assign(t, o); else targetsDB.push(Object.assign({ activity: [], contacts: [] }, o));
+    m.style.display = 'none'; saveDeskState(); renderTargetsTab();
+  };
+  document.getElementById('tgf-name').focus();
+}
+function removeTarget(idx) {
+  var t = targetsDB[idx]; if (!t) return;
+  if (!confirm('Remove ' + t.name + ' from your targets?')) return;
+  targetsDB.splice(idx, 1); saveDeskState(); renderTargetsTab();
+}
+function logTargetActivity(idx) {
+  var t = targetsDB[idx]; if (!t) return;
+  var txt = prompt('What happened with ' + t.name + '?'); if (!txt) return;
+  var d = new Date(); var iso = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  t.activity = t.activity || []; t.activity.push({ date: iso, text: txt });
+  tgOpen[tgKey(t.name)] = true; saveDeskState(); renderTargetsTab();
+}
+
+
+// ---- CONTRACTORS (v15) ----
+function addContractorRow(data) {
   data = data || {};
   var div = document.createElement("div");
-  div.style.cssText = "display:grid;grid-template-columns:75px 1fr 1.5fr 80px 24px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f0;";
-  var typeBadge = data.type === 'rotation' ? 'Rotation' : 'Anchor';
-  var typeColor = data.type === 'rotation' ? '#888780' : '#185FA5';
-  var nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.placeholder = 'Company name...';
-  nameInput.setAttribute('data-key', 'target-name');
-  nameInput.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid #e0e0d8;border-radius:4px;font-size:13px;font-family:Arial;color:#2c2c2a;background:white;outline:none;padding:4px 8px;';
-  nameInput.value = data.name || '';
-  nameInput.oninput = function(){ saveDeskState(); };
-  var noteInput = document.createElement('input');
-  noteInput.type = 'text';
-  noteInput.placeholder = 'Notes / contact...';
-  noteInput.setAttribute('data-key', 'target-note');
-  noteInput.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid #e0e0d8;border-radius:4px;font-size:12px;font-family:Arial;color:#888780;background:white;outline:none;padding:4px 8px;';
-  noteInput.value = data.note || '';
-  noteInput.oninput = function(){ saveDeskState(); };
-  var badge = document.createElement('span');
-  badge.className = 'target-badge';
-  badge.style.cssText = 'font-size:10px;background:' + typeColor + ';color:white;border-radius:3px;padding:2px 7px;text-align:center;display:block;';
-  badge.textContent = typeBadge;
-  var sel = document.createElement('select');
-  sel.setAttribute('data-key', 'target-type');
-  sel.style.cssText = 'width:100%;border:1px solid #e0e0d8;border-radius:4px;font-size:11px;font-family:Arial;color:#2c2c2a;background:white;outline:none;padding:4px;';
-  sel.innerHTML = '<option value="anchor">Anchor</option><option value="rotation">Rotation</option>';
-  sel.value = data.type === 'rotation' ? 'rotation' : 'anchor';
-  sel.onchange = function(){ saveDeskState(); var isRot=this.value==='rotation'; badge.textContent=isRot?'Rotation':'Anchor'; badge.style.background=isRot?'#888780':'#185FA5'; };
-  var btn = document.createElement('button');
-  btn.innerHTML = '×';
-  btn.style.cssText = 'border:none;background:none;color:#E24B4A;cursor:pointer;font-size:16px;';
-  btn.onclick = function(){ div.remove(); saveDeskState(); };
-  div.appendChild(badge);
-  div.appendChild(nameInput);
-  div.appendChild(noteInput);
-  div.appendChild(sel);
-  div.appendChild(btn);
-  document.getElementById("target-rows").appendChild(div);
+  div.style.cssText = "display:grid;grid-template-columns:1.3fr 1.2fr 1.2fr 0.8fr 0.7fr 0.7fr 0.9fr 24px;gap:6px;padding:5px 0;border-bottom:1px solid #f5f5f0;align-items:center;";
+  var inp = function(k, ph, type){ return '<input type="' + (type||'text') + '" data-key="' + k + '" placeholder="' + ph + '" value="' + escAttr(data[k]||'') + '" oninput="saveDeskState()" style="border:1px solid #f0efe9;border-radius:4px;font-size:12px;padding:3px 5px;width:100%;">'; };
+  div.innerHTML = inp('ct-name','Name') + inp('ct-client','Client') + inp('ct-role','Role') + inp('ct-start','','date') + inp('ct-pay','$','number') + inp('ct-bill','$','number') +
+    '<select data-key="ct-status" onchange="saveDeskState()" style="font-size:11px;padding:3px;">' + ['Active','Starting','Ending soon','Ended'].map(function(o){ return '<option' + (o === (data['ct-status']||'Active') ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>' +
+    '<button onclick="this.parentElement.remove();saveDeskState();" style="border:none;background:none;color:#E24B4A;cursor:pointer;font-size:14px;">×</button>';
+  document.getElementById("contractor-rows").appendChild(div);
+}
+function contractorSummary(list) {
+  var el = document.getElementById('ct-summary'); if (!el) return;
+  var active = list.filter(function(c){ return c['ct-status'] !== 'Ended' && c['ct-name']; });
+  var spread = active.reduce(function(sum, c){ return sum + Math.max(0, (Number(c['ct-bill'])||0) - (Number(c['ct-pay'])||0)) * 40; }, 0);
+  el.textContent = '— ' + active.length + ' active' + (spread ? ' · ~$' + Math.round(spread).toLocaleString() + '/week gross spread (40 hrs, before burden)' : '');
 }
 
 // ---- LEGACY STUBS (keep for EOD parser compatibility) ----
@@ -1957,7 +2155,7 @@ function addLeadOppRow(data) {}
 // ---- SAVE / LOAD ----
 function saveDeskState() {
   try {
-    var desk = { reqs: [], topLeads: [], targets: [], hotCandidates: [], rules: [] };
+    var desk = { reqs: [], topLeads: [], targets: [], hotCandidates: [], rules: [], contractors: [] };
     document.querySelectorAll("#req-blocks .req-block").forEach(function(block) {
       var req = {};
       block.querySelectorAll("[data-key]").forEach(function(el){
@@ -1976,13 +2174,12 @@ function saveDeskState() {
     document.querySelectorAll("#top-leads-rows > div").forEach(function(row) {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); desk.topLeads.push(obj);
     });
-    document.querySelectorAll("#target-rows > div").forEach(function(row) {
-      var obj = {};
-      row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; });
-      var sel = row.querySelector("select[data-key='target-type']");
-      if (sel) obj.type = sel.value;
-      if (obj["target-name"]) desk.targets.push({name: obj["target-name"]||"", note: obj["target-note"]||"", type: obj.type||"anchor"});
+    desk.targets = targetsDB.map(function(t){ return Object.assign({}, t); });
+    desk.contractors = [];
+    document.querySelectorAll("#contractor-rows > div").forEach(function(row) {
+      var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); if (obj["ct-name"]) desk.contractors.push(obj);
     });
+    contractorSummary(desk.contractors);
     document.querySelectorAll("#hot-candidate-rows > div").forEach(function(row) {
       var obj = {}; row.querySelectorAll("[data-key]").forEach(function(el){ obj[el.getAttribute("data-key")] = el.value; }); desk.hotCandidates.push(obj);
     });
@@ -2003,7 +2200,7 @@ function loadDeskState() {
   // Always clear first to avoid duplicates
   document.getElementById("req-blocks").innerHTML = "";
   document.getElementById("top-leads-rows").innerHTML = "";
-  document.getElementById("target-rows").innerHTML = "";
+  clearTargets();
   document.getElementById("hot-candidate-rows").innerHTML = "";
   document.getElementById("rules-rows").innerHTML = "";
   try {
@@ -2015,6 +2212,7 @@ function loadDeskState() {
       (desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
       (desk.targets||[]).forEach(function(d){ addTargetRow(d); });
       (desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
+      var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(desk.contractors||[]);
       (desk.rules||[]).forEach(function(d){ addRuleRow(d); });
     } else {
       loadDefaultDeskState();
@@ -2026,59 +2224,11 @@ function loadDeskState() {
 }
 
 function loadDefaultDeskState() {
-  // Updated 5/28/2026
-  addReqBlock({
-    "req-title": "National Supply Chain Director",
-    "req-client": "David Weekley Homes",
-    "req-hm": "John Schiegg",
-    candidates: [
-      {"cand-name":"Jeff Van Sant","cand-stage":"Contacting","cand-touch":"5/28","cand-next":"Regional directors meeting with him this week. John says if visits go well he plans to move forward. Watson Glazer complete. Comp $225K base, 50% bonus, open to Houston relo. Await John confirmation."},
-      {"cand-name":"Mike Demboski","cand-stage":"Submitted","cand-touch":"5/28","cand-next":"Introduced to John today. Pulte trained, National Purchasing Director at Thomas James Homes. John responded — wants to set up a call. Call Mike at 949-254-2755, get resume, set up call with John."},
-      {"cand-name":"Reid Haynie","cand-stage":"On Hold","cand-touch":"5/15","cand-next":"Told him Houston off the table. John may reach out directly. Reid receptive, would welcome conversation. No action needed — ball in John's court."},
-      {"cand-name":"Andrew Foote","cand-stage":"Not a Fit","cand-touch":"4/29","cand-next":"Met with John. Weekley likes him but not for Supply Chain Director. Call Andrew — understand where his head is, explore other fits."},
-      {"cand-name":"Stephen Applewhite","cand-stage":"Not a Fit","cand-touch":"5/28","cand-next":"Withdrew. Accepted VP Supply Chain at Evergreen Residential in Dallas. BTR maintenance, secured big contract. Good relationship. Follow up in one month."}
-    ]
-  });
-  [
-    {"tl-lead":"David Weekley Purchasing Agent — Charleston","tl-status":"Close to signing","tl-next":"Agreement stalled with Crislyn Coan. Call today — 2 weeks of silence is too long."}
-  ].forEach(function(d){ addTopLeadRow(d); });
-  [
-    {name:"David Weekley Homes", note:"10yr relationship, 30+ placements. John Schiegg HM.", type:"anchor"},
-    {name:"Pulte Group", note:"10yr land relationship. Ryan Cole LAM.", type:"anchor"},
-    {name:"Forestar", note:"Kelly Foster PNW. Bill Dycus former.", type:"anchor"},
-    {name:"Dream Finders Homes", note:"", type:"anchor"},
-    {name:"Stanley Martin", note:"", type:"anchor"},
-    {name:"Risewell Homes", note:"Megan Nelson purchasing contact.", type:"anchor"},
-    {name:"Sekisui House", note:"Carl Hayden former.", type:"anchor"},
-    {name:"M/I Homes", note:"", type:"anchor"},
-    {name:"Mattamy Homes", note:"Contract recruiting history.", type:"anchor"},
-    {name:"Davidson Homes", note:"Jennifer Ramey HR. Growing in Houston.", type:"anchor"}
-  ].forEach(function(d){ addTargetRow(d); });
-  [
-    {"hc-name":"Andrew Foote","hc-role":"Purchasing","hc-location":"Houston","hc-pitch":"Century Homes background"},
-    {"hc-name":"Reid Haynie","hc-role":"Purchasing","hc-location":"Atlanta","hc-pitch":"Pulte background"},
-    {"hc-name":"Sean Terrell","hc-role":"Ops Leader","hc-location":"Phoenix","hc-pitch":"Shawood"},
-    {"hc-name":"Mike Hifler","hc-role":"Purchasing","hc-location":"Denver","hc-pitch":"Pulte background"},
-    {"hc-name":"Brian Frame","hc-role":"Land","hc-location":"Phoenix","hc-pitch":"HRD Consulting"},
-    {"hc-name":"Bill Dycus","hc-role":"Land","hc-location":"Tucson","hc-pitch":"Forestar background"},
-    {"hc-name":"Andie Hemmah","hc-role":"Land","hc-location":"Tucson","hc-pitch":"AMH background"},
-    {"hc-name":"Cano Ornelas","hc-role":"Land","hc-location":"Tucson","hc-pitch":"AMH background"},
-    {"hc-name":"Mike Lewis","hc-role":"Purchasing Director","hc-location":"Tampa","hc-pitch":"Ashton Woods"},
-    {"hc-name":"Megan Nelson","hc-role":"Purchasing Director","hc-location":"Houston","hc-pitch":"Risewell"}
-  ].forEach(function(d){ addHotCandidateRow(d); });
-  [
-    {text:"ANCHOR TARGETS: David Weekley, Pulte, Forestar, Dream Finders, Stanley Martin, Risewell, Sekisui, M/I Homes, Mattamy, Davidson"},
-    {text:"No new verticals until homebuilding hits $250K"},
-    {text:"3 activation contacts every day - email, call, or LinkedIn - non-negotiable"},
-    {text:"One signed engagement per month - if pipeline is thin everything stops until fixed"},
-    {text:"Selective contingent from trusted relationships is not a concession - it is a Trojan horse"},
-    {text:"Lead every BD call with a candidate or intelligence - never lead with the engaged search pitch cold"},
-    {text:"Signed Engagements: 1 of 12"},
-    {text:"Placements: 0 of 6"},
-    {text:"Revenue YTD: $16,750"},
-    {text:"Pace needed: ~$35K/month | 8 months remaining"}
-  ].forEach(function(d){ addRuleRow(d); });
-  saveDeskState();
+  // Blank starting desk. Your real desk loads from OneDrive when you sign in.
+  saveDeskStateLocalOnly();
+}
+function saveDeskStateLocalOnly() {
+  try { localStorage.setItem("tg_desk", JSON.stringify({ reqs: [], topLeads: [], targets: [], hotCandidates: [], rules: [] })); } catch(e) {}
 }
 
 function buildPlanUI() {
@@ -2309,6 +2459,7 @@ function switchTab(tabId, btn) {
   if (tabId === "archive") { renderArchive(); loadPlanArchive(); loadWeekPlanArchive(); }
   if (tabId === "intel") { populateIntelDropdowns(); renderIntel(); renderIntelStats(); }
   if (tabId === "revenue") { renderRevenue(); }
+  if (tabId === "targets") { renderTargetsTab(); }
 }
 
 // ============================================================
@@ -4398,7 +4549,7 @@ async function loadDeskFromOneDrive() {
         // Clear current rendered content
         document.getElementById('req-blocks').innerHTML = '';
         document.getElementById('top-leads-rows').innerHTML = '';
-        document.getElementById('target-rows').innerHTML = '';
+        clearTargets();
         document.getElementById('hot-candidate-rows').innerHTML = '';
         document.getElementById('rules-rows').innerHTML = '';
         // Re-render using the proper builder functions
@@ -4406,6 +4557,7 @@ async function loadDeskFromOneDrive() {
         (data.desk.topLeads||[]).forEach(function(d){ addTopLeadRow(d); });
         (data.desk.targets||[]).forEach(function(d){ addTargetRow(d); });
         (data.desk.hotCandidates||[]).forEach(function(d){ addHotCandidateRow(d); });
+        var _ct = document.getElementById("contractor-rows"); if (_ct) _ct.innerHTML = ""; (data.desk.contractors||[]).forEach(function(d){ addContractorRow(d); }); contractorSummary(data.desk.contractors||[]);
         (data.desk.rules||[]).forEach(function(d){ addRuleRow(d); });
         // Also update localStorage so next load is instant
         localStorage.setItem('tg_desk', JSON.stringify(data.desk));
@@ -5073,17 +5225,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize
 loadIntelCache();
 renderScoreboard();
-// Clear any corrupted desk data and load fresh default
-localStorage.removeItem('tg_desk');
-loadDefaultDeskState();
-// Save good data to OneDrive immediately to overwrite any blank OneDrive data
-setTimeout(function() {
-  var deskJSON = localStorage.getItem('tg_desk');
-  if (deskJSON) {
-    var ts = new Date().toISOString();
-    saveDeskToOneDrive({ desk: JSON.parse(deskJSON), updated: ts });
-  }
-}, 5000);
+// (v15) Removed: v14 wiped My Desk on every startup, reloaded the old May default
+// desk, and saved that over OneDrive 5 seconds later. My Desk now loads from this
+// device first and then from OneDrive when you sign in. Nothing is overwritten at startup.
 initMSAL();
 </script>
 </html>
