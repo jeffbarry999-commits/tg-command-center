@@ -395,7 +395,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <!-- TOP LEADS -->
   <div class="card">
     <div class="card-title" style="color:#BA7517;">
-      <span>Top Leads <span style="font-weight:normal;font-size:11px;color:#888780;">— deals close to closing, max 5</span></span>
+      <span>Top Leads <span style="font-weight:normal;font-size:11px;color:#888780;">— deals close to closing, max 10</span></span>
       <button class="btn btn-gray" style="font-size:10px;padding:3px 10px;" onclick="addTopLeadRow()">+ Add Lead</button>
     </div>
     <div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:6px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f0f0ea;">
@@ -1484,8 +1484,8 @@ function endOfDay() {
   lines.push("   REQ: [Req Title] | [Client] | HM: [Hiring Manager]");
   lines.push("   · [Candidate] | [Stage] | Last: [date] | Next: [next step]");
   lines.push("   (repeat for each candidate in that req, then start next REQ: block)");
-  lines.push("   TOP 5 LEADS:");
-  lines.push("   · [Lead / Contact] | [Status] | Next: [action]");
+  lines.push("   TOP 10 LEADS:");
+  lines.push("   · [Lead / Contact] | [Status: Hot — req likely, Warm — keep touching, Cold — plant seed, Proposal sent, Search confirmed, or Client — terms in progress] | Next: [action]");
   lines.push("   TARGETS:");
   lines.push("   · [Company] | Anchor or Rotation | Residential or Commercial | Stage: [stage] | Next: [next step] [YYYY-MM-DD] | Contacts: Name (Title); Name (Title)");
   lines.push("   HOT CANDIDATES TO MARKET:");
@@ -1654,7 +1654,7 @@ function updateDeskFromClaude() {
   // Split the paste into sections. Only sections that appear get touched.
   var HEADS = [
     { k: "reqs", re: /^(ACTIVE SEARCHES|OPEN REQS|SEARCHES)\b/i },
-    { k: "leads", re: /^(TOP 5 LEADS|TOP LEADS|HOT LEADS|LEADS)\b/i },
+    { k: "leads", re: /^(TOP \d+ LEADS|TOP LEADS|HOT LEADS|LEADS)\b/i },
     { k: "targets", re: /^TARGETS\b/i },
     { k: "hc", re: /^HOT CANDIDATES\b/i },
     { k: "plan", re: /^(TOMORROW'?S PLAN|TOMORROW’S PLAN|TODAY'?S PLAN|PLAN FOR TOMORROW)/i },
@@ -1809,7 +1809,7 @@ function buildDeskLines() {
       lines.push("");
     }
   });
-  lines.push("TOP 5 LEADS:");
+  lines.push("TOP 10 LEADS:");
   document.querySelectorAll("#top-leads-rows > div").forEach(function(row) {
     var lead = (row.querySelector("[data-key='tl-lead']")||{}).value||"";
     var status = (row.querySelector("[data-key='tl-status']")||{}).value||"";
@@ -1988,7 +1988,7 @@ function addCandidateRow(container, data) {
   container.appendChild(div);
 }
 
-// ---- TOP 5 LEADS ----
+// ---- TOP 10 LEADS ----
 function addTopLeadRow(data) {
   data = data || {};
   var div = document.createElement("div");
@@ -1996,7 +1996,7 @@ function addTopLeadRow(data) {
   div.innerHTML =
     '<input type="text" placeholder="Lead / Contact" data-key="tl-lead" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" oninput="saveDeskState()" value="' + escAttr(data["tl-lead"]||"") + '">' +
     '<select data-key="tl-status" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;width:100%;" onchange="saveDeskState()">' +
-    ['Hot — req likely','Warm — keep touching','Cold — plant seed','Proposal sent','Search confirmed'].map(function(s){ return '<option'+(data["tl-status"]===s?' selected':'')+'>'+s+'</option>'; }).join('') +
+    (function(){ var o = ['Hot — req likely','Warm — keep touching','Cold — plant seed','Proposal sent','Search confirmed','Client — terms in progress']; if (data["tl-status"] && o.indexOf(data["tl-status"]) < 0) o.unshift(data["tl-status"]); return o; })().map(function(s){ return '<option'+(data["tl-status"]===s?' selected':'')+'>'+escAttr(s)+'</option>'; }).join('') +
     '</select>' +
     '<div style="display:flex;gap:4px;">' +
     '<input type="text" placeholder="Next action" data-key="tl-next" style="border:none;font-size:12px;font-family:Arial;color:#2c2c2a;background:transparent;outline:none;flex:1;" oninput="saveDeskState()" value="' + escAttr(data["tl-next"]||"") + '">' +
@@ -5107,7 +5107,7 @@ function claudeBuildDeskContext() {
     }
   });
   lines.push('');
-  lines.push('TOP 5 LEADS:');
+  lines.push('TOP 10 LEADS:');
   document.querySelectorAll('#top-leads-rows > div').forEach(function(row) {
     var lead = (row.querySelector("[data-key='tl-lead']") || {value:''}).value || '';
     var status = (row.querySelector("[data-key='tl-status']") || {value:''}).value || '';
