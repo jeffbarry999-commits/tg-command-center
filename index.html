@@ -333,10 +333,16 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
       <span>Targets <span id="tg-count" style="font-weight:normal;font-size:11px;color:#888780;"></span></span>
       <button class="btn btn-blue" style="font-size:11px;padding:5px 12px;" onclick="editTarget(null)">+ Add Target</button>
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+    <div id="tg-linetabs" style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="btn btn-blue" id="tg-lt-Residential" style="font-size:12px;padding:6px 16px;" onclick="tgLineTab='Residential';renderTargetsTab();">Residential</button>
+      <button class="btn btn-gray" id="tg-lt-Commercial" style="font-size:12px;padding:6px 16px;" onclick="tgLineTab='Commercial';renderTargetsTab();">Commercial</button>
+      <button class="btn btn-gray" style="font-size:11px;padding:6px 10px;margin-left:auto;" onclick="tgCollapseAll(true)">Collapse all</button>
+      <button class="btn btn-gray" style="font-size:11px;padding:6px 10px;" onclick="tgCollapseAll(false)">Expand all</button>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:12px;">
       <input type="text" id="tg-q" placeholder="Search targets, contacts, notes..." oninput="renderTargetsTab()">
       <select id="tg-type" onchange="renderTargetsTab()"><option value="">Anchor + Rotation</option><option value="anchor">Anchor</option><option value="rotation">Rotation</option></select>
-      <select id="tg-line" onchange="renderTargetsTab()"><option value="">Residential + Commercial</option><option>Residential</option><option>Commercial</option></select>
+      <select id="tg-line" style="display:none"><option value=""></option></select>
       <select id="tg-sort" onchange="renderTargetsTab()"><option value="next">Sort: next step date</option><option value="name">Sort: name</option><option value="recent">Sort: least recently touched</option></select>
     </div>
     <div id="tg-due" style="margin-bottom:12px;"></div>
@@ -2038,8 +2044,8 @@ function addRuleRow(data) {
 // TARGETS (v15) — separate page, synced with My Desk / OneDrive
 // ============================================================
 var targetsDB = [];
-var TG_STAGES = ['Target','Contacted','Conversation','Meeting','Proposal','Client','Nurture'];
-var TG_FUNNEL = ['1 Unverified','2 Researched','3 Contact Identified','4 Warm','5 Client'];
+var TG_STAGES = ['Current','Warm','Target','Contacted','Conversation','Meeting','Proposal','Client','Nurture'];
+var TG_FUNNEL = ['Current','1 Unverified','2 Researched','3 Contact Identified','4 Warm','5 Client'];
 function stagesFor(t){ return t && t.line === 'Commercial' ? TG_FUNNEL : TG_STAGES; }
 function tgKey(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 function clearTargets(){ targetsDB = []; renderTargetsTab(); }
@@ -2078,6 +2084,12 @@ function targetActivity(t, hist) {
 }
 function tgEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 var tgOpen = {};
+var tgLineTab = 'Residential';
+var tgStageOpen = {};
+var TG_ORDER = [['current','Current'],['client','Client'],['proposal','Proposal'],['meeting','Meeting'],['warm','Warm'],['conversation','Conversation'],['contacted','Contacted'],['contact identified','Contact Identified'],['researched','Researched'],['unverified','Unverified'],['target','Target'],['nurture','Nurture']];
+function tgStageRank(st){ var x = String(st||'').toLowerCase(); for (var i = 0; i < TG_ORDER.length; i++) if (x.indexOf(TG_ORDER[i][0]) >= 0) return i; return TG_ORDER.length; }
+function tgStageLabel(i){ return i < TG_ORDER.length ? TG_ORDER[i][1] : 'Other'; }
+function tgCollapseAll(c){ TG_ORDER.concat([['other','Other']]).forEach(function(o, i){ tgStageOpen[tgLineTab + i] = !c; }); tgStageOpen[tgLineTab + TG_ORDER.length] = !c; renderTargetsTab(); }
 function renderTargetsTab() {
   var box = document.getElementById('tg-list'); if (!box) return;
   renderDueSteps();
@@ -2086,17 +2098,18 @@ function renderTargetsTab() {
   var hist = captureHistory();
   var today = new Date(); var tISO = today.getFullYear() + '-' + ('0'+(today.getMonth()+1)).slice(-2) + '-' + ('0'+today.getDate()).slice(-2);
   var rows = targetsDB.map(function(t){ var a = targetActivity(t, hist); return { t: t, act: a, last: a.length ? a[0].date : '' }; })
-    .filter(function(r){ return (!ty || r.t.type === ty) && (!ln || r.t.line === ln) && (!q || JSON.stringify(r.t).toLowerCase().indexOf(q) >= 0); });
+    .filter(function(r){ return (!ty || r.t.type === ty) && (r.t.line === tgLineTab || (!r.t.line && tgLineTab === 'Residential')) && (!q || JSON.stringify(r.t).toLowerCase().indexOf(q) >= 0); });
+  ['Residential','Commercial'].forEach(function(l){ var b = document.getElementById('tg-lt-' + l); if (b) { b.className = 'btn ' + (l === tgLineTab ? 'btn-blue' : 'btn-gray'); b.textContent = l + ' (' + targetsDB.filter(function(t){ return t.line === l || (!t.line && l === 'Residential'); }).length + ')'; } });
   rows.sort(function(a, b){
     if (so === 'name') return a.t.name.localeCompare(b.t.name);
     if (so === 'recent') return (a.last||'') < (b.last||'') ? -1 : 1;
     return (a.t.nextDate||'9999') < (b.t.nextDate||'9999') ? -1 : 1;
   });
   var com = targetsDB.filter(function(t){ return t.line === 'Commercial'; });
-  var fun = TG_FUNNEL.map(function(f){ return f.slice(2) + ' ' + com.filter(function(t){ return t.stage === f; }).length; }).join(' · ');
+  var fun = TG_FUNNEL.filter(function(f){ return f !== 'Current'; }).map(function(f){ return f.slice(2) + ' ' + com.filter(function(t){ return t.stage === f; }).length; }).join(' · ');
   document.getElementById('tg-count').textContent = '— ' + targetsDB.length + ' total' + (com.length ? '   |   Commercial funnel: ' + fun : '');
-  if (!rows.length) { box.innerHTML = '<div class="empty-state">No targets yet. Click + Add Target, or Claude can add them through Update My Desk.</div>'; return; }
-  box.innerHTML = rows.map(function(r){
+  if (!rows.length) { box.innerHTML = '<div class="empty-state">No ' + tgLineTab.toLowerCase() + ' targets match. Click + Add Target, or Claude can add them through Update My Desk.</div>'; return; }
+  var cardHTML = function(r){
     var t = r.t, od = t.nextDate && t.nextDate < tISO, idx = targetsDB.indexOf(t);
     var badge = '<span style="font-size:10px;background:' + (t.type === 'rotation' ? '#888780' : '#185FA5') + ';color:white;border-radius:3px;padding:2px 7px;">' + (t.type === 'rotation' ? 'Rotation' : 'Anchor') + '</span>';
     var line = t.line ? ' <span style="font-size:10px;background:#f0efe9;color:#5f5e5a;border-radius:3px;padding:2px 7px;">' + tgEsc(t.line) + '</span>' : '';
@@ -2111,11 +2124,20 @@ function renderTargetsTab() {
           '<button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="removeTarget(' + idx + ')">Remove</button></div>' +
       '</div>' +
       (t.next ? '<div style="font-size:13px;margin-top:6px;">' + (t.nextDate ? '<span style="font-size:10px;font-weight:bold;border-radius:9px;padding:2px 7px;margin-right:6px;background:' + (od ? '#fbe9e8;color:#a3302f' : '#fff0d9;color:#8a5a12') + ';">' + t.nextDate.slice(5).replace('-','/') + '</span>' : '') + '<b>Next:</b> ' + tgEsc(t.next) + '</div>' : '') +
-      (t.note ? '<div style="font-size:12px;color:#5f5e5a;margin-top:4px;">' + tgEsc(t.note) + '</div>' : '') +
-      contactsHTML(t, idx) +
-      '<div style="margin-top:6px;"><button class="btn btn-gray" style="font-size:11px;padding:3px 8px;border:none;color:#378ADD;" onclick="tgOpen[\'' + tgKey(t.name) + '\']=!tgOpen[\'' + tgKey(t.name) + '\'];renderTargetsTab();">' + r.act.length + ' activit' + (r.act.length === 1 ? 'y' : 'ies') + (tgOpen[tgKey(t.name)] ? ' ▲' : ' ▼') + '</button></div>';
+      (tgOpen[tgKey(t.name)] ? (t.note ? '<div style="font-size:12px;color:#5f5e5a;margin-top:4px;">' + tgEsc(t.note) + '</div>' : '') + contactsHTML(t, idx) : '') +
+      '<div style="margin-top:6px;"><button class="btn btn-gray" style="font-size:11px;padding:3px 8px;border:none;color:#378ADD;" onclick="tgOpen[\'' + tgKey(t.name) + '\']=!tgOpen[\'' + tgKey(t.name) + '\'];renderTargetsTab();">' + (tgOpen[tgKey(t.name)] ? 'Hide details ▲' : 'Details: ' + ((t.contacts||[]).length) + ' contact' + ((t.contacts||[]).length === 1 ? '' : 's') + ', ' + r.act.length + ' activit' + (r.act.length === 1 ? 'y' : 'ies') + ' ▼') + '</button></div>';
     if (tgOpen[tgKey(t.name)]) html += '<div style="border-top:1px dashed #e0e0d8;margin-top:4px;padding-top:6px;">' + (r.act.length ? r.act.slice(0, 30).map(function(a){ return '<div style="font-size:12px;padding:3px 0;"><span style="color:#888780;">' + (a.date ? a.date.slice(5).replace('-','/') : '') + ' · ' + a.src + '</span> ' + tgEsc(a.text) + '</div>'; }).join('') : '<div style="font-size:12px;color:#888780;">Nothing yet. Log a call in Daily Capture with this company, or click + Activity.</div>') + '</div>';
     return html + '</div>';
+  };
+  var groups = {};
+  rows.forEach(function(r){ var k = tgStageRank(r.t.stage); (groups[k] = groups[k] || []).push(r); });
+  box.innerHTML = Object.keys(groups).map(Number).sort(function(a,b){ return a-b; }).map(function(k){
+    var key = tgLineTab + k, open = tgStageOpen[key] !== undefined ? tgStageOpen[key] : (k <= 5 || !!q);
+    var due = groups[k].filter(function(r){ return r.t.nextDate && r.t.nextDate <= tISO; }).length;
+    return '<div style="margin-bottom:10px;"><div onclick="tgStageOpen[\'' + key + '\']=' + (!open) + ';renderTargetsTab();" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f0efe9;border-radius:6px;font-size:13px;font-weight:bold;margin-bottom:6px;">' +
+      '<span>' + (open ? '▼' : '▶') + '</span><span>' + tgStageLabel(k) + '</span><span style="font-weight:normal;color:#888780;">' + groups[k].length + '</span>' +
+      (due ? '<span style="font-size:10px;font-weight:bold;border-radius:9px;padding:2px 7px;background:#fbe9e8;color:#a3302f;">' + due + ' due</span>' : '') + '</div>' +
+      (open ? groups[k].map(cardHTML).join('') : '') + '</div>';
   }).join('');
 }
 
